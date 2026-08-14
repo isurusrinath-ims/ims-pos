@@ -827,42 +827,62 @@
     if(!x)return toast('Invoice not found',true);
     const c=state.company;
     const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
-    const html=`<html><body style="font-family:monospace;font-size:22px;text-align:center;width:100%;margin:0;padding:4px">
-      <h2 style="margin:0 0 8px">${esc(c.name||'YOUR COMPANY')}</h2>
-      <p style="margin:0 0 8px">${esc(c.address||'')}${c.br?'<br>BR: '+esc(c.br):''}${c.phone?'<br>'+esc(c.phone):''}</p>
-      <hr>
-      <table style="width:100%;text-align:left;border-collapse:collapse">
-      <tr><td>Invoice</td><td style="text-align:right"><b>${x.id}</b></td></tr>
-      <tr><td>Date</td><td style="text-align:right"><b>${x.date}</b></td></tr>
-      <tr><td>Shop ID</td><td style="text-align:right"><b>${x.shopId}</b></td></tr>
-      <tr><td>Customer</td><td style="text-align:right"><b>${esc(x.customer)}</b></td></tr>
-      </table>
-      <hr>
-      <table style="width:100%;text-align:left;border-collapse:collapse">
-      ${x.lines.map(l=>`<tr><td colspan="2"><b>${esc(l.description)}</b></td></tr><tr><td>${l.qty} x ${l.rate.toFixed(2)}</td><td style="text-align:right"><b>${(l.qty*l.rate).toFixed(2)}</b></td></tr>`).join('')}
-      </table>
-      <hr>
-      <table style="width:100%;text-align:left;border-collapse:collapse">
-      <tr><td>Subtotal</td><td style="text-align:right"><b>${subtotal.toFixed(2)}</b></td></tr>
-      ${x.discount?`<tr><td>Discount</td><td style="text-align:right"><b>-${Number(x.discount).toFixed(2)}</b></td></tr>`:''}
-      <tr><td><b>TOTAL</b></td><td style="text-align:right"><b>${x.total.toFixed(2)}</b></td></tr>
-      </table>
-      <hr>
-      <p style="margin:8px 0 0">Powered by IMS Apps<br>Custom Business Software Solutions<br>Call: 0774 422 444</p>
-      </body></html>`;
+    // Bluetooth Print (mate.bluetoothprint) tag-based format: <BAF>Content
+    // B: bold (0/1) | A: align (0=left,1=center,2=right) | F: format (0=normal,1=doubleH,2=doubleH+W,3=doubleW)
+    let str='';
+    const line=(content,b,a,f)=>{str+=`<${b}${a}${f??0}>${content}\n`};
+    const row=(left,right)=>line(String(left).padEnd(16,' ')+String(right).padStart(16,' '),0,0);
+    line(c.name||'YOUR COMPANY',1,1,1);
+    if(c.address)line(c.address,0,1);
+    if(c.br)line('BR: '+c.br,0,1);
+    if(c.phone)line(c.phone,0,1);
+    line('--------------------------------',0,0);
+    row('Invoice',x.id);
+    row('Date',x.date);
+    row('Shop ID',x.shopId);
+    row('Customer',x.customer);
+    line('--------------------------------',0,0);
+    x.lines.forEach(l=>{
+      line(l.description,1,0);
+      row(`${l.qty} x ${l.rate.toFixed(2)}`,(l.qty*l.rate).toFixed(2));
+    });
+    line('--------------------------------',0,0);
+    row('Subtotal',subtotal.toFixed(2));
+    if(x.discount)row('Discount','-'+Number(x.discount).toFixed(2));
+    row('TOTAL',x.total.toFixed(2));
+    line('--------------------------------',0,0);
+    line('Powered by IMS Apps',0,1);
+    line('Custom Business Software Solutions',0,1);
+    line('Call: 0774 422 444',0,1);
+    line(' ',0,0);
+    line(' ',0,0);
     try{
-      const dataUrl='data:text/html,'+encodeURIComponent(html);
-      const printUrl='print://escpos.org/escpos/bt/print?srcTp=uri&srcObj=html&numCopies=1&src='+encodeURIComponent(dataUrl);
-      const a=document.createElement('a');
-      a.href=printUrl;
-      a.style.display='none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{try{document.body.removeChild(a)}catch(e){}},1000);
-      toast('Sending to printer — if nothing happens, open ESC POS Print Service and check it\'s connected to your printer');
+      shareToBluetoothPrint(str);
     }catch(err){
       toast('Could not open printer app: '+(err.message||'unknown error'),true);
     }
+  }
+  function shareToBluetoothPrint(str){
+    if(navigator.share){
+      navigator.share({text:str}).then(()=>{
+        toast('Sent to Share menu — choose Bluetooth Print');
+      }).catch(()=>{
+        fallbackShareIntent(str);
+      });
+    }else{
+      fallbackShareIntent(str);
+    }
+  }
+  function fallbackShareIntent(str){
+    // Android share-sheet intent URL as a fallback for WebViews without navigator.share
+    const intentUrl='intent:#Intent;action=android.intent.action.SEND;type=text/plain;S.android.intent.extra.TEXT='+encodeURIComponent(str)+';package=mate.bluetoothprint;end';
+    const a=document.createElement('a');
+    a.href=intentUrl;
+    a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{try{document.body.removeChild(a)}catch(e){}},1000);
+    toast('Sending to Bluetooth Print — make sure it is connected to your printer');
   }
 
   if('serviceWorker' in navigator&&location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(()=>{})}
