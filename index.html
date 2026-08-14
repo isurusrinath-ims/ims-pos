@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#142b3a">
+  <title>IMS Sales & Inventory</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root{--navy:#0f2333;--navy2:#1c3d4f;--teal:#0f8f83;--tealDark:#0b6b62;--mint:#d9f0ea;--bg:#eef3f1;--card:#ffffff;--line:#dde7e4;--ink:#0f2430;--muted:#6d818a;--amber:#c88b31;--red:#b23a2b}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer;-webkit-appearance:none}
+    input,select,textarea{-webkit-appearance:none}
+    .top{height:64px;background:linear-gradient(135deg,var(--card),var(--mint) 180%);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 15px;position:sticky;top:0;z-index:10;gap:10px}
+    .top small{font-size:9.5px;letter-spacing:.15em;color:var(--tealDark);font-weight:800}
+    .top h1{font-size:19px;margin:3px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;color:var(--navy)}
+    .primary,.outline,.dark,.danger{min-height:44px;border-radius:9px;padding:0 14px;font-weight:800;white-space:nowrap}
+    .primary{background:linear-gradient(135deg,var(--teal),var(--tealDark));border:0;color:#edfffb;box-shadow:0 4px 12px rgba(15,143,131,.28)}
+    .outline{background:var(--card);border:1px solid #9fb7b3;color:var(--ink)}
+    .dark{background:var(--navy);border:0;color:#e7f6f3}
+    .danger{background:#f6e2dd;border:1px solid #d8a996;color:#8a3822}
+    .content{padding:15px;max-width:1300px;margin:auto}
+    .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:15px;flex-wrap:wrap}
+    .hero h2{margin:0 0 5px;font-size:22px}
+    .hero p{margin:0;color:var(--muted);font-size:13.5px}
+    .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(15,36,48,.06),0 1px 3px rgba(15,36,48,.05)}
+    .metric{padding:14px;min-height:120px}
+    .metric i{width:36px;height:36px;border-radius:10px;background:var(--mint);display:grid;place-items:center;color:var(--teal);font-style:normal;font-size:18px}
+    .metric span{display:block;color:var(--muted);font-size:12px;margin:10px 0 5px}
+    .metric b{font-size:17px;display:block;word-break:break-word}
+    .metric b.neg{color:var(--red)}
+    .metric small{color:#849397}
+    .report-subject{display:block;color:var(--navy);font-size:17px;font-weight:800;margin:10px 0 5px}
+    .panel{margin-top:13px;padding:15px}
+    .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px;flex-wrap:wrap}
+    .panel-head h3{margin:0 0 4px;font-size:16.5px}
+    .panel-head p{margin:0;color:var(--muted);font-size:12.5px}
+    .table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+    table{width:100%;min-width:640px;border-collapse:collapse}
+    th{padding:10px;text-align:left;background:#e6eeec;color:#6f8387;text-transform:uppercase;font-size:9.5px;letter-spacing:.06em;white-space:nowrap}
+    td{padding:12px 10px;border-bottom:1px solid var(--line);font-size:13px;color:#546a70}
+    td b{color:var(--ink)}
+    tr.total-row td{font-weight:800;color:var(--ink);background:#e9f2ef}
+    .edit{border:1px solid #96b7b0;background:var(--mint);color:#0d6961;border-radius:7px;padding:7px 9px;font-size:11.5px;font-weight:800;margin:2px}
+    .del{border:1px solid #d8a996;background:#f6e2dd;color:#8a3822;border-radius:7px;padding:7px 9px;font-size:11.5px;font-weight:800;margin:2px}
+    .empty{text-align:center;padding:45px 20px;color:var(--muted)}
+    .empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:6px}
+    .status{padding:5px 8px;border-radius:20px;font-size:10.5px;font-weight:800;white-space:nowrap}
+    .good{background:#d5ece6;color:#087165}
+    .bad{background:#f1dfc2;color:#8b5d1b}
+    .low{background:#f6e2dd;color:#8a3822}
+    .nav{position:fixed;left:0;right:0;bottom:0;height:calc(68px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:linear-gradient(180deg,var(--navy2),var(--navy));display:flex;overflow-x:auto;z-index:20;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 16px rgba(0,0,0,.2)}
+    .nav button{min-width:64px;flex:1 0 auto;border:0;background:transparent;color:#8ba5ab;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding-bottom:4px;transition:color .15s}
+    .nav button.active{color:#5fe8d5}
+    .nav button.active span{text-shadow:0 0 12px rgba(95,232,213,.5)}
+    .nav span{font-size:19px}
+    .nav small{font-size:9.5px}
+    .chart{padding:15px;margin-top:13px}
+    .chart-area{height:210px;display:flex;gap:14px;align-items:flex-end;overflow-x:auto;border-bottom:1px solid #9dafac;padding:15px 8px 0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 48px,rgba(90,115,118,.12) 49px);-webkit-overflow-scrolling:touch}
+    .group{height:100%;min-width:66px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px}
+    .pair{height:165px;display:flex;align-items:flex-end;gap:4px}
+    .bar{width:21px;border-radius:5px 5px 1px 1px;min-height:5px;position:relative}
+    .bar.target{background:#9fb7b3}
+    .bar.actual{background:var(--teal)}
+    .bar em{position:absolute;top:-16px;width:100%;text-align:center;font-size:8px;font-style:normal;font-weight:800;white-space:nowrap}
+    .group>small{width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+    .progress{height:7px;background:#cbd8d5;border-radius:10px;overflow:hidden;min-width:80px}
+    .progress i{display:block;height:100%;background:var(--teal)}
+    dialog{border:0;padding:0;background:transparent;width:100%;max-width:720px;margin:auto 0 0;max-height:94vh}
+    dialog::backdrop{background:rgba(10,28,38,.68)}
+    .modal{background:var(--card);border-radius:18px 18px 0 0;padding:20px 15px;max-height:94vh;overflow:auto}
+    .modal h2{margin:0 0 5px;font-size:20px}
+    .modal>p{margin:0 0 18px;color:var(--muted);font-size:13.5px}
+    .close{float:right;width:34px;height:34px;border:0;border-radius:50%;font-size:20px;background:var(--mint);color:var(--ink)}
+    .form{display:grid;gap:13px}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    label{display:grid;gap:6px;color:var(--muted);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+    input,select,textarea{height:42px;border:1px solid #abc2bd;background:#e7efed;border-radius:8px;padding:0 10px;color:var(--ink);width:100%}
+    textarea{height:80px;padding-top:10px}
+    .auto{background:var(--mint);font-weight:800;color:#0e665f}
+    .hint{font-size:12px;color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0}
+    .err{color:var(--red);font-size:12px;font-weight:700;text-transform:none;letter-spacing:0}
+    .line-editor{border:1px solid var(--line);border-radius:10px;padding:10px}
+    .line{display:grid;grid-template-columns:1fr 60px 82px 32px;gap:6px;margin-bottom:7px}
+    .line button{border:0;border-radius:7px;background:#f6e2dd;color:#8a3822;font-weight:800}
+    .total{display:flex;justify-content:space-between;background:var(--navy);color:#e8faf7;border-radius:8px;padding:14px;margin-top:10px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:-20px;background:var(--card);padding:12px 0 18px}
+    .toast{position:fixed;bottom:calc(82px + env(safe-area-inset-bottom));left:14px;right:14px;background:var(--navy);color:#e8faf7;padding:13px;border-radius:10px;text-align:center;z-index:50;font-size:13.5px}
+    .toast.err-toast{background:#7a2c1c}
+    .desktop{display:none}
+    .settings-grid{display:grid;gap:12px}
+    .legend{font-size:12px;color:var(--muted)}
+    .pnl-section{margin-top:18px}
+    .pnl-section h4{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--teal)}
+    .logo-row{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+    .logo-preview{width:72px;height:72px;border-radius:12px;background:var(--mint);border:1px dashed #9fb7b3;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto}
+    .logo-preview img{width:100%;height:100%;object-fit:contain}
+    .logo-preview span{font-size:10.5px;color:var(--muted);text-align:center;padding:4px}
+    .logo-actions{display:flex;flex-direction:column;gap:6px;flex:1;min-width:160px}
+    .logo-upload-btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;border-radius:8px;background:var(--teal);color:#edfffb;font-weight:800;font-size:13.5px;padding:0 14px;cursor:pointer;width:fit-content}
+    .pnl-row{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--line);font-size:14px}
+    .pnl-row.sub{padding-left:14px;color:var(--muted);font-size:13px}
+    .pnl-row.subtotal{font-weight:800;color:var(--ink);border-bottom:2px solid var(--line)}
+    .pnl-row.grand{font-weight:900;font-size:16px;background:var(--navy);color:#e8faf7;border-radius:8px;padding:12px;border:0;margin-top:6px}
+    .pnl-row.grand.neg{background:var(--red)}
+    .badge-count{background:var(--mint);color:var(--teal);border-radius:20px;padding:2px 8px;font-size:10.5px;font-weight:800}
+    @media(min-width:800px){
+      body{padding:0 0 0 220px}
+      .desktop{display:block}
+      .side{position:fixed;left:0;top:0;bottom:0;width:220px;background:linear-gradient(180deg,var(--navy2),var(--navy));padding:24px 15px;color:#d8e8e6;overflow-y:auto}
+      .brand{font-size:19px;font-weight:900;margin:0 10px 30px}
+      .side button{display:flex;width:100%;border:0;background:transparent;color:#adc2c6;padding:12px;border-radius:9px;margin-bottom:4px;text-align:left}
+      .side button.active{background:var(--navy2);color:#79dfd0}
+      .nav{display:none}
+      .top{height:78px;padding:0 28px}
+      .content{padding:25px 28px}
+      .cards{grid-template-columns:repeat(4,1fr)}
+      .metric{min-height:115px}
+      .grid{grid-template-columns:1fr 1fr}
+      dialog{margin:auto;max-width:760px}
+      .modal{border-radius:16px;padding:24px}
+      .settings-grid{grid-template-columns:1fr 1fr}
+      .chart-area{height:250px}
+      .pair{height:200px}
+    }
+  </style>
+</head>
+<body>
+  <aside class="side desktop"><div class="brand">IMS<br><small>Business Manager</small></div><div id="sideNav"></div></aside>
+  <header class="top"><div><small>BUSINESS WORKSPACE</small><h1 id="pageTitle">Dashboard</h1></div><button class="primary" onclick="openInvoice()">＋ Invoice</button></header>
+  <main id="app"></main>
+  <nav class="nav" id="mobileNav"></nav>
+  <dialog id="dialog"><div class="modal" id="modal"></div></dialog>
+  <div id="toast" class="toast" hidden></div>
+  <script>
+  const tabs=[['dashboard','▦','Dashboard'],['invoices','▤','Invoices'],['vendors','◇','Vendors'],['purchases','↓','Purchasing'],['inventory','□','Inventory'],['returns','↺','Returns'],['expenses','＄','Expenses'],['targets','◎','Targets'],['reports','↗','Reports'],['settings','⚙','Settings']];
+  const EXPENSE_CATEGORIES=['Rent','Salaries & Wages','Utilities (Electricity/Water)','Transport & Fuel','Communication','Marketing & Advertising','Repairs & Maintenance','Office Supplies','Bank Charges & Fees','Taxes & Licenses','Other'];
+  const STORAGE_KEY='ims_mobile_data_v2';
+  const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',printerWidth:'58',printerName:'',printerNote:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],targets:[],audit:[]};
+  let state=loadState(),tab='dashboard',editor=[];
+
+  function loadState(){
+    try{
+      const raw=localStorage.getItem(STORAGE_KEY);
+      const parsed=raw?JSON.parse(raw):null;
+      const s=parsed&&typeof parsed==='object'?parsed:structuredClone(fresh);
+      Object.keys(fresh).forEach(k=>{if(s[k]===undefined)s[k]=structuredClone(fresh[k])});
+      return s;
+    }catch(e){
+      console.error('State load failed, starting fresh:',e);
+      return structuredClone(fresh);
+    }
+  }
+
+  const $=s=>document.querySelector(s);
+  const money=n=>'LKR '+Number(n||0).toLocaleString('en-LK',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
+
+  function persist(){
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+    catch(e){toast('Could not save — storage may be full',true)}
+  }
+  function toast(t,isErr){const e=$('#toast');e.textContent=(isErr?'⚠ ':'✓ ')+t;e.className='toast'+(isErr?' err-toast':'');e.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>e.hidden=true,2600)}
+  function log(module,action,record,details){state.audit.unshift({time:new Date().toLocaleString('en-GB'),module,action,record:record||'',details:details||''});if(state.audit.length>500)state.audit.length=500}
+  function setTab(t){tab=t;renderNav();render()}
+  function renderNav(){
+    const html=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" onclick="setTab('${x[0]}')"><span>${x[1]}</span><small>${x[2]}</small></button>`).join('');
+    $('#mobileNav').innerHTML=html;
+    $('#sideNav').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" onclick="setTab('${x[0]}')">${x[1]} &nbsp; ${x[2]}</button>`).join('');
+    $('#pageTitle').textContent=tabs.find(x=>x[0]===tab)[2];
+  }
+
+  function metric(icon,label,value,note,neg){return `<article class="card metric"><i>${icon}</i><span>${label}</span><b class="${neg?'neg':''}">${value}</b><small>${note}</small></article>`}
+  function empty(title,text,action){return `<div class="empty"><b>${esc(title)}</b>${esc(text)}${action?`<br><br><button class="outline" onclick="${action}">＋ Add New</button>`:''}</div>`}
+
+  // ---------- Financial calculations (shared, single source of truth) ----------
+  function financials(){
+    const grossSales=state.invoices.reduce((s,x)=>s+x.lines.reduce((a,l)=>a+l.qty*l.rate,0),0);
+    const discounts=state.invoices.reduce((s,x)=>s+num(x.discount),0);
+    const goodReturns=state.returns.filter(x=>x.condition==='Good');
+    const damagedReturns=state.returns.filter(x=>x.condition==='Damaged');
+    const returnRefunds=state.returns.reduce((s,x)=>s+x.refund,0);
+    const netSales=grossSales-discounts-returnRefunds;
+    const cogsSold=state.invoices.reduce((s,x)=>s+x.cogs,0);
+    const cogsReturnedGood=goodReturns.reduce((s,x)=>s+x.cost*x.qty,0);
+    const damagedLoss=damagedReturns.reduce((s,x)=>s+x.cost*x.qty,0);
+    const netCogs=cogsSold-cogsReturnedGood;
+    const grossProfit=netSales-netCogs;
+    const buying=state.purchases.reduce((s,x)=>s+x.total,0);
+    const stockValue=state.products.reduce((s,x)=>s+x.stock*x.cost,0);
+    const expenseTotal=state.expenses.reduce((s,x)=>s+num(x.amount),0);
+    const expenseByCategory={};
+    state.expenses.forEach(x=>{expenseByCategory[x.category]=(expenseByCategory[x.category]||0)+num(x.amount)});
+    const netProfit=grossProfit-expenseTotal-damagedLoss;
+    return {grossSales,discounts,returnRefunds,netSales,cogsSold,cogsReturnedGood,damagedLoss,netCogs,grossProfit,buying,stockValue,expenseTotal,expenseByCategory,netProfit,invoiceCount:state.invoices.length};
+  }
+
+  function render(){
+    const app=$('#app');
+    const f=financials();
+    if(tab==='dashboard')app.innerHTML=dashboard(f);
+    else if(tab==='vendors')app.innerHTML=recordsPage('Vendor Database','Manage suppliers.',"openVendor()",vendorTable());
+    else if(tab==='inventory')app.innerHTML=recordsPage('Inventory','Stock quantity comes only from Purchase Orders. Use "+ New" here just to set up product name, cost and price.',"openProduct()",productTable());
+    else if(tab==='purchases')app.innerHTML=recordsPage('Purchase Orders','Unlimited items with automatic inventory updates.',"openPurchase()",purchaseTable());
+    else if(tab==='invoices')app.innerHTML=recordsPage('Invoices','Shop IDs start from OTSR0001.',"openInvoice()",invoiceTable());
+    else if(tab==='returns')app.innerHTML=recordsPage('Sales Returns','Only Good / Resellable items return to stock.',"openReturn()",returnTable());
+    else if(tab==='expenses')app.innerHTML=expensesPage(f);
+    else if(tab==='targets')app.innerHTML=targetsPage();
+    else if(tab==='reports')app.innerHTML=reportsPage(f);
+    else if(tab==='settings')app.innerHTML=settingsPage();
+  }
+  function recordsPage(title,text,action,body){return `<section class="content"><div class="hero"><div><h2>${title}</h2><p>${text}</p></div><button class="primary" onclick="${action}">＋ New</button></div><article class="card">${body}</article></section>`}
+  function achieved(t){const a=state.invoices.flatMap(x=>x.lines).filter(x=>t.item==='All Products'||x.description===t.item);return {qty:a.reduce((s,x)=>s+x.qty,0),value:a.reduce((s,x)=>s+x.qty*x.rate,0)}}
+
+  function dashboard(f){
+    const rows=state.targets.map(t=>({...t,...achieved(t)})),max=Math.max(1,...rows.flatMap(x=>[x.quantityTarget,x.qty]));
+    const lowStock=state.products.filter(p=>p.stock<=p.reorder);
+    return `<section class="content">
+      <div class="hero"><div><h2>Business Overview</h2><p>Smartphone-ready sales and inventory workspace.</p></div></div>
+      <div class="cards">
+        ${metric('↗','Net Sales',money(f.netSales),f.invoiceCount+' invoices, after discounts &amp; returns')}
+        ${metric('↓','Purchasing',money(f.buying),state.purchases.length+' orders')}
+        ${metric('□','Inventory Value',money(f.stockValue),state.products.length+' products'+(lowStock.length?' · '+lowStock.length+' low stock':''))}
+        ${metric('◎','Net Profit',money(f.netProfit),'After COGS, expenses &amp; damage',f.netProfit<0)}
+      </div>
+      ${lowStock.length?`<article class="card panel"><div class="panel-head"><div><h3>Low Stock Alert</h3><p>${lowStock.length} product(s) at or below reorder level.</p></div><span class="badge-count">${lowStock.length}</span></div><div class="table-wrap"><table><tr><th>Product</th><th>Stock</th><th>Reorder Level</th><th></th></tr>${lowStock.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td><span class="status low">${p.stock}</span></td><td>${p.reorder}</td><td><button class="edit" onclick="openProduct('${p.id}')">Restock</button></td></tr>`).join('')}</table></div></article>`:''}
+      <article class="card chart">
+        <div class="panel-head"><div><h3>Target vs Achievement</h3><p>Achievement updates automatically from invoices.</p></div><span class="legend">Grey: Target · Teal: Achievement</span></div>
+        ${rows.length?`<div class="chart-area">${rows.slice(0,8).map(x=>`<div class="group"><div class="pair"><div class="bar target" style="height:${Math.max(4,x.quantityTarget/max*100)}%"><em>${x.quantityTarget}</em></div><div class="bar actual" style="height:${Math.max(4,x.qty/max*100)}%"><em>${x.qty}</em></div></div><small>${esc(x.item)}</small></div>`).join('')}</div>`:empty('No targets yet','Add a target to display the chart.',"openTarget()")}
+      </article>
+    </section>`;
+  }
+
+  function vendorTable(){return state.vendors.length?`<div class="table-wrap"><table><tr><th>Vendor ID</th><th>Name</th><th>Phone</th><th>Terms</th><th></th></tr>${state.vendors.map(x=>`<tr><td><b>${x.id}</b></td><td>${esc(x.name)}</td><td>${esc(x.phone)||'—'}</td><td>${esc(x.terms)}</td><td><button class="edit" onclick="openVendor('${x.id}')">Edit</button></td></tr>`).join('')}</table></div>`:empty('No vendors yet','Add your first vendor.',"openVendor()")}
+
+  function productTable(){return state.products.length?`<div class="table-wrap"><table><tr><th>Product</th><th>Stock</th><th>Cost</th><th>Selling</th><th>Value</th><th>Damage Return</th><th></th></tr>${state.products.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${x.id}</small></td><td>${x.stock<=x.reorder?`<span class="status low">${x.stock}</span>`:x.stock}</td><td>${money(x.cost)}</td><td>${money(x.price)}</td><td>${money(x.stock*x.cost)}</td><td>${x.damaged?`<span class="status bad">Damage Return: ${x.damaged}</span>`:'—'}</td><td><button class="edit" onclick="openProduct('${x.id}')">Edit</button>${x.damaged?`<button class="del" onclick="clearDamaged('${x.id}')">Clear Damage</button>`:''}</td></tr>`).join('')}</table></div>`:empty('No products yet','Create a Purchase Order to add products with opening stock — or add product details here first and stock them later.',"openPurchase()")}
+  function clearDamaged(id){
+    const p=state.products.find(x=>x.id===id);
+    if(!p)return;
+    if(!confirm(`Clear ${p.damaged} damaged unit(s) of "${p.name}"? This just removes the damage flag and does not affect stock.`))return;
+    log('Inventory','Damage Cleared',id,p.damaged+' units');
+    p.damaged=0;
+    persist();render();toast('Damage return cleared');
+  }
+
+  function purchaseTable(){return state.purchases.length?`<div class="table-wrap"><table><tr><th>PO</th><th>Vendor</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${state.purchases.map(x=>`<tr><td><b>${x.id}</b></td><td>${esc(x.vendor)}</td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="viewPurchase('${x.id}')">View</button><button class="edit" onclick="openPurchase('${x.id}')">Edit</button></td></tr>`).join('')}</table></div>`:empty('No purchase orders','Create an order with unlimited items.',"openPurchase()")}
+  function viewPurchase(id){
+    const x=state.purchases.find(p=>p.id===id);
+    if(!x)return toast('Purchase order not found',true);
+    show(`<h2>${x.id}</h2><p>Vendor: ${esc(x.vendor)} · Date: ${x.date}</p>
+    <div class="table-wrap"><table><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Line Total</th></tr>${x.lines.map(l=>`<tr><td><b>${esc(l.description)}</b></td><td>${l.qty}</td><td>${money(l.rate)}</td><td><b>${money(l.qty*l.rate)}</b></td></tr>`).join('')}
+    <tr class="total-row"><td colspan="3">Total Value</td><td><b>${money(x.total)}</b></td></tr></table></div>
+    <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();openPurchase('${x.id}')">Edit</button></div>`);
+  }
+
+  function invoiceTable(){return state.invoices.length?`<div class="table-wrap"><table><tr><th>Invoice</th><th>Shop ID</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${state.invoices.map(x=>`<tr><td><b>${x.id}</b></td><td>${x.shopId}</td><td>${esc(x.customer)}</td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="openInvoice('${x.id}')">Edit</button><button class="edit" onclick="printInvoice('${x.id}')">Print</button><button class="del" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No invoices yet','Create an invoice after adding stock.',"openInvoice()")}
+
+  function returnTable(){return state.returns.length?`<div class="table-wrap"><table><tr><th>Return</th><th>Invoice</th><th>Item</th><th>Qty</th><th>Condition</th><th>Refund</th><th>Stock</th></tr>${state.returns.map(x=>`<tr><td><b>${x.id}</b></td><td>${x.invoiceId}</td><td>${esc(x.item)}</td><td>${x.qty}</td><td><span class="status ${x.condition==='Good'?'good':'bad'}">${x.condition}</span></td><td>${money(x.refund)}</td><td>${x.condition==='Good'?'Added':'Not added (loss)'}</td></tr>`).join('')}</table></div>`:empty('No returns yet','Record a return from a saved invoice.',"openReturn()")}
+
+  function expensesPage(f){
+    const rows=[...state.expenses].sort((a,b)=>new Date(b.date.split('/').reverse().join('-'))-new Date(a.date.split('/').reverse().join('-')));
+    return `<section class="content">
+      <div class="hero"><div><h2>Business Expenses</h2><p>Track operating costs by category — feeds directly into the Profit &amp; Loss report.</p></div><button class="primary" onclick="openExpense()">＋ Expense</button></div>
+      <div class="cards">
+        ${metric('＄','Total Expenses',money(f.expenseTotal),state.expenses.length+' entries')}
+        ${metric('◇','Categories Used',Object.keys(f.expenseByCategory).length,'of '+EXPENSE_CATEGORIES.length+' available')}
+      </div>
+      <article class="card panel">
+        <div class="panel-head"><div><h3>Expense Records</h3><p>All recorded operating costs.</p></div></div>
+        ${rows.length?`<div class="table-wrap"><table><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th></th></tr>${rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td>${esc(x.note)||'—'}</td><td><b>${money(x.amount)}</b></td><td><button class="edit" onclick="openExpense('${x.id}')">Edit</button><button class="del" onclick="deleteExpense('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No expenses recorded','Add rent, salaries, utilities and other costs.',"openExpense()")}
+      </article>
+      ${Object.keys(f.expenseByCategory).length?`<article class="card panel"><div class="panel-head"><div><h3>By Category</h3></div></div><div class="table-wrap"><table><tr><th>Category</th><th>Amount</th><th>% of Total</th></tr>${Object.entries(f.expenseByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<tr><td>${esc(cat)}</td><td><b>${money(amt)}</b></td><td>${f.expenseTotal?Math.round(amt/f.expenseTotal*100):0}%</td></tr>`).join('')}</table></div></article>`:''}
+    </section>`;
+  }
+
+  function targetsPage(){
+    const rows=state.targets.map(x=>({...x,...achieved(x)}));
+    return `<section class="content"><div class="hero"><div><h2>Sales Targets</h2><p>Manual targets with automatic achievements.</p></div><button class="primary" onclick="openTarget()">＋ Target</button></div>
+    <div class="cards">
+      ${metric('◎','Quantity Target',state.targets.reduce((s,x)=>s+x.quantityTarget,0),'Manual')}
+      ${metric('✓','Achievement',rows.reduce((s,x)=>s+x.qty,0),'From invoices')}
+      ${metric('◇','Value Target',money(state.targets.reduce((s,x)=>s+x.valueTarget,0)),'Manual')}
+      ${metric('↗','Value Achievement',money(rows.reduce((s,x)=>s+x.value,0)),'From invoices')}
+    </div>
+    <article class="card panel">${rows.length?`<div class="table-wrap"><table><tr><th>Item</th><th>Qty Target</th><th>Achieved</th><th>Progress</th><th>Value Target</th><th>Value Achieved</th><th></th></tr>${rows.map(x=>{const p=x.quantityTarget?Math.round(x.qty/x.quantityTarget*100):0;return `<tr><td><b>${esc(x.item)}</b></td><td>${x.quantityTarget}</td><td>${x.qty}</td><td><div style="display:flex;align-items:center;gap:6px"><div class="progress"><i style="width:${Math.min(p,100)}%"></i></div><span>${p}%</span></div></td><td>${money(x.valueTarget)}</td><td>${money(x.value)}</td><td><button class="edit" onclick="openTarget('${x.id}')">Edit</button><button class="del" onclick="deleteTarget('${x.id}')">Delete</button></td></tr>`}).join('')}</table></div>`:empty('No targets','Add a manual quantity and value target.',"openTarget()")}</article></section>`;
+  }
+
+  // ---------- Reports incl. professional P&L ----------
+  function reportSets(f){
+    return [
+      {n:'Invoices',r:[['Invoice','Date','Shop ID','Retailer','Item','Qty','Rate','Line Total','Discount','Invoice Total'],...state.invoices.flatMap(x=>x.lines.map((l,i)=>[x.id,x.date,x.shopId,x.customer,l.description,l.qty,l.rate,l.qty*l.rate,i===0?x.discount:'',i===0?x.total:'']))]},
+      {n:'Retailers',r:[['Shop ID','Name'],...state.retailers.map(x=>[x.id,x.name])]},
+      {n:'Vendors',r:[['Vendor ID','Name','Phone','Terms'],...state.vendors.map(x=>[x.id,x.name,x.phone,x.terms])]},
+      {n:'Purchase Orders',r:(()=>{const rows=[['PO','Vendor','Date','Item','Qty','Rate','Line Total','PO Total']];state.purchases.forEach(x=>{x.lines.forEach((l,i)=>rows.push([x.id,x.vendor,x.date,l.description,l.qty,l.rate,l.qty*l.rate,i===0?x.total:'']))});rows.push(['','','','','','','Grand Total',state.purchases.reduce((s,x)=>s+x.total,0)]);return rows})()},
+      {n:'Inventory',r:[['Product ID','Product','Stock','Reorder Level','Cost','Selling','Stock Value'],...state.products.map(x=>[x.id,x.name,x.stock,x.reorder,x.cost,x.price,x.stock*x.cost])]},
+      {n:'Returns',r:[['Return','Invoice','Item','Qty','Condition','Refund','Cost Impact','Date'],...state.returns.map(x=>[x.id,x.invoiceId,x.item,x.qty,x.condition,x.refund,x.cost*x.qty,x.date])]},
+      {n:'Expenses',r:[['Expense ID','Date','Category','Description','Amount'],...state.expenses.map(x=>[x.id,x.date,x.category,x.note,x.amount])]},
+      {n:'Target vs Achievement',r:[['Target','Item','Qty Target','Qty Achieved','Value Target','Value Achieved'],...state.targets.map(x=>{const a=achieved(x);return[x.id,x.item,x.quantityTarget,a.qty,x.valueTarget,a.value]})]},
+      {n:'Profit and Loss',r:pnlRows(f)},
+      {n:'Activity History',r:[['Time','Module','Action','Record'],...state.audit.map(x=>[x.time,x.module,x.action,x.record])]}
+    ];
+  }
+
+  function pnlRows(f){
+    const rows=[['Profit & Loss Statement','']];
+    rows.push(['Generated',new Date().toLocaleString('en-GB')]);
+    rows.push(['',''])
+    rows.push(['REVENUE','']);
+    rows.push(['Gross Sales',f.grossSales]);
+    rows.push(['Less: Discounts',-f.discounts]);
+    rows.push(['Less: Sales Returns (Refunds)',-f.returnRefunds]);
+    rows.push(['Net Sales',f.netSales]);
+    rows.push(['',''])
+    rows.push(['COST OF GOODS SOLD','']);
+    rows.push(['Cost of Items Sold',f.cogsSold]);
+    rows.push(['Less: Cost of Good Returns',-f.cogsReturnedGood]);
+    rows.push(['Net COGS',f.netCogs]);
+    rows.push(['',''])
+    rows.push(['GROSS PROFIT',f.grossProfit]);
+    rows.push(['Gross Margin %',f.netSales?Math.round(f.grossProfit/f.netSales*1000)/10:0]);
+    rows.push(['',''])
+    rows.push(['OPERATING EXPENSES','']);
+    Object.entries(f.expenseByCategory).sort((a,b)=>b[1]-a[1]).forEach(([cat,amt])=>rows.push([cat,amt]));
+    rows.push(['Total Operating Expenses',f.expenseTotal]);
+    rows.push(['',''])
+    rows.push(['OTHER LOSSES','']);
+    rows.push(['Damaged / Written-off Returns',f.damagedLoss]);
+    rows.push(['',''])
+    rows.push(['NET PROFIT',f.netProfit]);
+    rows.push(['Net Margin %',f.netSales?Math.round(f.netProfit/f.netSales*1000)/10:0]);
+    rows.push(['',''])
+    rows.push(['REFERENCE (not part of P&L)','']);
+    rows.push(['Total Purchasing (cash out on stock)',f.buying]);
+    rows.push(['Current Inventory Value',f.stockValue]);
+    return rows;
+  }
+
+  function xls(name,sets){
+    const xe=v=>String(v??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    const sheets=sets.map(s=>`<Worksheet ss:Name="${xe(s.n).slice(0,31)}"><Table>${s.r.map(r=>`<Row>${r.map(v=>`<Cell><Data ss:Type="${typeof v==='number'?'Number':'String'}">${xe(v)}</Data></Cell>`).join('')}</Row>`).join('')}</Table></Worksheet>`).join('');
+    download(name+'.xls','<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+sheets+'</Workbook>','application/vnd.ms-excel');
+  }
+
+  function reportsPage(f){
+    const sets=reportSets(f);
+    return `<section class="content">
+      <div class="hero"><div><h2>Reports</h2><p>Download business reports in Excel format.</p></div><button class="primary" onclick="downloadAllReports()">↓ All Excel</button></div>
+
+      <article class="card panel">
+        <div class="panel-head"><div><h3>Profit &amp; Loss Statement</h3><p>Live calculation from invoices, returns and expenses.</p></div><button class="outline" onclick="downloadPnlOnly()">↓ Download P&amp;L</button></div>
+        <div class="pnl-section">
+          <h4>Revenue</h4>
+          <div class="pnl-row"><span>Gross Sales</span><span>${money(f.grossSales)}</span></div>
+          <div class="pnl-row sub"><span>Less: Discounts</span><span>−${money(f.discounts)}</span></div>
+          <div class="pnl-row sub"><span>Less: Sales Returns</span><span>−${money(f.returnRefunds)}</span></div>
+          <div class="pnl-row subtotal"><span>Net Sales</span><span>${money(f.netSales)}</span></div>
+        </div>
+        <div class="pnl-section">
+          <h4>Cost of Goods Sold</h4>
+          <div class="pnl-row"><span>Cost of Items Sold</span><span>${money(f.cogsSold)}</span></div>
+          <div class="pnl-row sub"><span>Less: Cost of Good Returns</span><span>−${money(f.cogsReturnedGood)}</span></div>
+          <div class="pnl-row subtotal"><span>Net COGS</span><span>${money(f.netCogs)}</span></div>
+        </div>
+        <div class="pnl-row grand ${f.grossProfit<0?'neg':''}"><span>Gross Profit</span><span>${money(f.grossProfit)} (${f.netSales?Math.round(f.grossProfit/f.netSales*1000)/10:0}%)</span></div>
+        <div class="pnl-section">
+          <h4>Operating Expenses</h4>
+          ${Object.keys(f.expenseByCategory).length?Object.entries(f.expenseByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<div class="pnl-row sub"><span>${esc(cat)}</span><span>${money(amt)}</span></div>`).join(''):'<div class="pnl-row sub"><span>No expenses recorded</span><span>—</span></div>'}
+          <div class="pnl-row subtotal"><span>Total Operating Expenses</span><span>${money(f.expenseTotal)}</span></div>
+        </div>
+        ${f.damagedLoss?`<div class="pnl-section"><h4>Other Losses</h4><div class="pnl-row subtotal"><span>Damaged / Written-off Returns</span><span>${money(f.damagedLoss)}</span></div></div>`:''}
+        <div class="pnl-row grand ${f.netProfit<0?'neg':''}"><span>NET PROFIT</span><span>${money(f.netProfit)} (${f.netSales?Math.round(f.netProfit/f.netSales*1000)/10:0}%)</span></div>
+      </article>
+
+      <div class="cards">${sets.filter(s=>s.n!=='Profit and Loss').map((s,i)=>`<article class="card metric"><i>↗</i><span class="report-subject">${s.n}</span><b>${Math.max(0,s.r.length-1)} records</b><button class="outline" onclick="downloadSingleReport('${s.n}')" style="margin-top:8px;width:100%">Download Excel</button></article>`).join('')}</div>
+    </section>`;
+  }
+  function downloadAllReports(){xls('IMS_All_Reports',reportSets(financials()))}
+  function downloadPnlOnly(){xls('IMS_Profit_and_Loss',[{n:'Profit and Loss',r:pnlRows(financials())}])}
+  function downloadSingleReport(name){const sets=reportSets(financials());const s=sets.find(x=>x.n===name);if(s)xls('IMS_'+name.replace(/ /g,'_'),[s])}
+
+  function settingsPage(){
+    const scopes=[['retailers','Retailers'],['vendors','Vendors'],['products','Inventory'],['purchases','Purchase Orders'],['invoices','Invoices'],['returns','Returns'],['expenses','Expenses'],['targets','Targets & Achievements'],['audit','Activity History'],['company','Company Settings']];
+    return `<section class="content">
+      <div class="hero"><div><h2>Settings</h2><p>Company profile, backups, restore and activity history.</p></div></div>
+      <article class="card panel">
+        <div class="panel-head"><div><h3>Company Profile</h3><p>Shown on printed invoices and reports.</p></div></div>
+        <div class="logo-row">
+          <div class="logo-preview" id="logoPreview">${state.company.logo?`<img src="${state.company.logo}" alt="Logo">`:'<span>No Logo</span>'}</div>
+          <div class="logo-actions">
+            <label class="logo-upload-btn">Upload Logo<input type="file" accept="image/*" onchange="uploadLogo(event)" hidden></label>
+            ${state.company.logo?'<button type="button" class="del" onclick="removeLogo()">Remove Logo</button>':''}
+            <p class="legend">PNG or JPG, square image works best. Stored on this device only.</p>
+          </div>
+        </div>
+        <form class="form" onsubmit="saveSettings(event)">
+          <div class="settings-grid">
+            <label>Company Name<input name="name" value="${esc(state.company.name)}"></label>
+            <label>BR Number<input name="br" value="${esc(state.company.br)}"></label>
+            <label>Address<textarea name="address">${esc(state.company.address)}</textarea></label>
+            <label>Phone<input name="phone" value="${esc(state.company.phone)}"></label>
+          </div>
+          <button class="primary">Save Settings</button>
+        </form>
+      </article>
+      <article class="card panel">
+        <div class="panel-head"><div><h3>Printer Setup</h3><p>Printing sends the invoice to your phone's Bluetooth thermal printer app (e.g. ESC POS Print Service). Set the actual paper width inside that printer app's own settings — the fields below are just for your reference.</p></div></div>
+        <form class="form" onsubmit="savePrinterSettings(event)">
+          <div class="settings-grid">
+            <label>Paper Width (reference only)<select name="printerWidth"><option value="58" ${state.company.printerWidth==='58'?'selected':''}>58mm (small thermal)</option><option value="80" ${state.company.printerWidth==='80'?'selected':''}>80mm (standard thermal)</option><option value="a4" ${state.company.printerWidth==='a4'?'selected':''}>A4 (regular printer)</option></select></label>
+            <label>Printer Name / Model (optional)<input name="printerName" value="${esc(state.company.printerName)}" placeholder="e.g. GOOJPRT Mobile Printer"></label>
+          </div>
+          <label>Notes (optional)<textarea name="printerNote" placeholder="e.g. Set paper width and pair Bluetooth inside the ESC POS Print Service app">${esc(state.company.printerNote)}</textarea></label>
+          <button class="primary">Save Printer Setup</button>
+        </form>
+      </article>
+      <article class="card panel"><div class="panel-head"><div><h3>Data Backup</h3><p>Download all data or each module separately.</p></div><button class="primary" onclick="backup('all')">↓ Full Backup</button></div><div class="cards">${scopes.map(s=>`<button class="outline" onclick="backup('${s[0]}')">↓ ${s[1]}</button>`).join('')}</div>
+      <hr>
+      <div class="grid"><label>Restore Type<select id="restoreScope"><option value="all">Full Backup</option>${scopes.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select></label><label>Choose JSON Backup<input type="file" accept=".json,application/json" onchange="restoreFile(event)"></label></div>
+      <p class="legend">Restoring replaces the selected module only. Take a Full Backup first.</p>
+      </article>
+      <article class="card panel"><div class="panel-head"><div><h3>Activity History</h3><p>All create, edit, delete and restore actions.</p></div></div>${state.audit.length?`<div class="table-wrap"><table><tr><th>Time</th><th>Module</th><th>Action</th><th>Record</th></tr>${state.audit.slice(0,100).map(x=>`<tr><td>${x.time}</td><td>${x.module}</td><td>${x.action}</td><td>${x.record}</td></tr>`).join('')}</table></div>`:empty('No activity yet','New actions appear here.')}</article>
+      <article class="card panel"><div class="panel-head"><div><h3>Test With Sample Data</h3><p>Load a few sample products, a vendor, a purchase order and an invoice — useful for testing printing and reports. Remove it any time from here.</p></div></div><div class="cards"><button class="outline" onclick="loadSampleData()">＋ Load Sample Data</button><button class="danger" onclick="clearSampleData()">⚠ Remove Sample Data</button></div></article>
+      <article class="card panel danger-zone"><div class="panel-head"><div><h3>Reset App</h3><p>Permanently erase all data on this device and start fresh.</p></div></div><button class="danger" onclick="resetApp()">⚠ Erase All Data</button></article>
+    </section>`;
+  }
+  function resetApp(){
+    if(!confirm('This will permanently delete ALL data (invoices, stock, expenses, everything) on this device. This cannot be undone. Continue?'))return;
+    if(!confirm('Are you absolutely sure? Type OK to confirm final deletion.'))return;
+    state=structuredClone(fresh);
+    persist();
+    setTab('dashboard');
+    toast('All data erased — fresh start');
+  }
+  const SAMPLE_TAG='__SAMPLE__';
+  function loadSampleData(){
+    if(state.products.some(p=>p._sample)||state.invoices.some(x=>x._sample))return toast('Sample data is already loaded',true);
+    const p1={id:'PRD-'+String(state.products.length+1).padStart(3,'0'),name:'Dialog Reload Card 100',stock:50,reorder:10,cost:90,price:100,_sample:true};
+    const p2={id:'PRD-'+String(state.products.length+2).padStart(3,'0'),name:'Dialog SIM Pack',stock:30,reorder:5,cost:40,price:60,_sample:true};
+    state.products.push(p1,p2);
+    const vendor={id:'OTSV'+String(state.vendors.length+1).padStart(3,'0'),name:'HP Communication',phone:'0771234567',terms:'Cash',_sample:true};
+    state.vendors.push(vendor);
+    const po={id:'PO-'+String(state.purchases.length+1).padStart(4,'0'),vendor:vendor.name,date:new Date().toLocaleDateString('en-GB'),lines:[{description:p1.name,qty:20,rate:90},{description:p2.name,qty:15,rate:40}],total:20*90+15*40,_sample:true};
+    state.purchases.push(po);
+    const shopId='OTSR'+String(state.retailers.length+1).padStart(4,'0');
+    state.retailers.push({id:shopId,name:'Sample Retail Shop',_sample:true});
+    const invLines=[{description:p1.name,qty:3,rate:100},{description:p2.name,qty:2,rate:60}];
+    invLines.forEach(l=>{const p=state.products.find(x=>x.name===l.description);if(p)p.stock-=l.qty});
+    const inv={id:'INV-'+String(state.invoices.length+1).padStart(4,'0'),shopId,customer:'Sample Retail Shop',date:new Date().toLocaleDateString('en-GB'),lines:invLines,discount:10,total:(3*100+2*60)-10,cogs:3*90+2*40,_sample:true};
+    state.invoices.push(inv);
+    state.expenses.push({id:'EXP-'+String(state.expenses.length+1).padStart(4,'0'),category:'Transport & Fuel',amount:1500,note:'Sample expense entry',date:new Date().toLocaleDateString('en-GB'),_sample:true});
+    log('Settings','Loaded','Sample data');
+    persist();render();toast('Sample data loaded — try Invoices → Print, or check Reports');
+  }
+  function clearSampleData(){
+    if(!confirm('Remove all sample data? Your real records will not be affected.'))return;
+    state.products=state.products.filter(x=>!x._sample);
+    state.vendors=state.vendors.filter(x=>!x._sample);
+    state.purchases=state.purchases.filter(x=>!x._sample);
+    state.retailers=state.retailers.filter(x=>!x._sample);
+    state.invoices=state.invoices.filter(x=>!x._sample);
+    state.expenses=state.expenses.filter(x=>!x._sample);
+    log('Settings','Removed','Sample data');
+    persist();render();toast('Sample data removed');
+  }
+
+  function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+  function download(name,content,type){
+    try{
+      const blob=new Blob([content],{type});
+      // Preferred path: works in real browsers and many WebView wrappers with download support
+      if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
+      const u=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=u;a.download=name;a.rel='noopener';a.style.display='none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},1000);
+      toast('Download started: '+name);
+    }catch(err){
+      // Fallback for WebView wrappers that block blob downloads entirely:
+      // open the raw content in a new tab so the user can use the browser/app's
+      // own "Save page" or share option.
+      try{
+        const w=window.open('','_blank');
+        if(w){
+          w.document.write('<pre style="white-space:pre-wrap;word-break:break-word;font:12px monospace;padding:12px">'+esc(content)+'</pre>');
+          w.document.title=name;
+          toast('Download blocked — opened '+name+' in a new tab. Use Share/Save from there.',true);
+        }else{
+          toast('Could not download or open '+name+' — check app permissions.',true);
+        }
+      }catch(err2){
+        toast('Download failed: '+(err.message||'unknown error'),true);
+      }
+    }
+  }
+  function backup(scope){const payload=scope==='all'?{version:2,createdAt:new Date().toISOString(),...state}:{version:2,createdAt:new Date().toISOString(),scope,data:{[scope]:state[scope]}};download(scope==='all'?'IMS_Full_Backup.json':`IMS_${scope}_Backup.json`,JSON.stringify(payload,null,2),'application/json')}
+  function restoreFile(e){
+    const f=e.target.files[0],scope=$('#restoreScope').value;
+    if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const p=JSON.parse(r.result),d=p.data||p;
+        if(scope==='all'){
+          if(!d.company||!Array.isArray(d.invoices)||!Array.isArray(d.products))throw Error('Invalid full backup file');
+          const merged=structuredClone(fresh);
+          Object.keys(fresh).forEach(k=>{if(d[k]!==undefined)merged[k]=d[k]});
+          state=merged;
+        }else{
+          if(d[scope]===undefined)throw Error('Selected data type not found in this file');
+          if(Array.isArray(fresh[scope])&&!Array.isArray(d[scope]))throw Error('Backup format does not match '+scope);
+          state[scope]=d[scope];
+        }
+        log('Backup','Restored',scope,'Restored from JSON file');
+        persist();render();toast('Backup restored successfully');
+      }catch(err){toast(err.message||'Invalid backup file',true)}
+    };
+    r.onerror=()=>toast('Could not read file',true);
+    r.readAsText(f);
+    e.target.value='';
+  }
+  function show(html){$('#modal').innerHTML=`<button class="close" onclick="closeModal()">×</button>${html}`;$('#dialog').showModal()}
+  function closeModal(){$('#dialog').close()}
+
+  // ---------- Vendors ----------
+  function openVendor(id){
+    const x=state.vendors.find(v=>v.id===id),next='OTSV'+String(state.vendors.length+1).padStart(3,'0');
+    show(`<h2>${x?'Edit Vendor':'New Vendor'}</h2><p>Vendor ID is generated automatically.</p>
+    <form class="form" onsubmit="saveVendor(event,'${id||''}')">
+      <label>Vendor ID<input class="auto" value="${x?x.id:next}" readonly></label>
+      <label>Name<input name="name" value="${esc(x?.name)}" required></label>
+      <label>Phone<input name="phone" type="tel" pattern="[0-9+ ()-]{7,15}" value="${esc(x?.phone)}" placeholder="07XXXXXXXX"></label>
+      <label>Terms<select name="terms"><option${(!x||x.terms==='Cash')?' selected':''}>Cash</option><option${x?.terms==='Credit · 7 days'?' selected':''}>Credit · 7 days</option><option${x?.terms==='Credit · 30 days'?' selected':''}>Credit · 30 days</option></select></label>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save</button></div>
+    </form>`);
+  }
+  function saveVendor(e,id){
+    e.preventDefault();
+    const f=new FormData(e.target),name=(f.get('name')||'').trim();
+    if(!name)return toast('Vendor name is required',true);
+    const data={name,phone:(f.get('phone')||'').trim(),terms:f.get('terms')};
+    if(id){const rec=state.vendors.find(x=>x.id===id);if(!rec)return toast('Vendor no longer exists',true);Object.assign(rec,data);log('Vendors','Updated',id)}
+    else{const newId='OTSV'+String(state.vendors.length+1).padStart(3,'0');state.vendors.push({id:newId,...data});log('Vendors','Created',newId)}
+    persist();closeModal();render();toast('Vendor saved');
+  }
+
+  // ---------- Products ----------
+  function openProduct(id){
+    const x=state.products.find(v=>v.id===id);
+    show(`<h2>${x?'Edit Product':'New Product'}</h2><p>${x?'Stock quantity is managed through Purchase Orders and cannot be edited here.':'Stock starts at 0 — add stock later using a Purchase Order.'}</p>
+    <form class="form" onsubmit="saveProduct(event,'${id||''}')">
+      <label>Name<input name="name" value="${esc(x?.name)}" required></label>
+      ${x?`<label>Current Stock<input value="${x.stock}" readonly class="auto"></label>`:''}
+      <div class="grid">
+        <label>Reorder Level<input name="reorder" type="number" min="0" step="1" value="${x?.reorder??0}"></label>
+        <label>Cost<input name="cost" type="number" min="0" step="0.01" value="${x?.cost??''}" placeholder="0.00" required></label>
+        <label>Selling Price<input name="price" type="number" min="0" step="0.01" value="${x?.price??''}" placeholder="0.00" required></label>
+      </div>
+      ${!x?'<p class="legend">To add opening stock, create a Purchase Order for this product after saving.</p>':''}
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save</button></div>
+    </form>`);
+  }
+  function saveProduct(e,id){
+    e.preventDefault();
+    const f=new FormData(e.target),name=(f.get('name')||'').trim();
+    if(!name)return toast('Product name is required',true);
+    const cost=num(f.get('cost')),price=num(f.get('price')),reorder=num(f.get('reorder'));
+    if(cost<0||price<0||reorder<0)return toast('Values cannot be negative',true);
+    const data={name,reorder,cost,price};
+    if(id){const rec=state.products.find(x=>x.id===id);if(!rec)return toast('Product no longer exists',true);Object.assign(rec,data);log('Inventory','Updated',id)}
+    else{const newId='PRD-'+String(state.products.length+1).padStart(3,'0');state.products.push({id:newId,...data,stock:0});log('Inventory','Created',newId)}
+    persist();closeModal();render();toast('Product saved');
+  }
+
+  // ---------- Line editor (shared by purchase / invoice) ----------
+  function lineRows(type){
+    return editor.map((x,i)=>{
+      const itemField=type==='invoice'
+        ?`<select onchange="lineChange(${i},'description',this.value)">${state.products.length?'':'<option value="">No products yet</option>'}${state.products.map(p=>`<option ${p.name===x.description?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`
+        :`<input value="${esc(x.description)}" placeholder="Item" oninput="lineChange(${i},'description',this.value)">`;
+      return `<div class="line">${itemField}<input type="number" min="1" step="1" value="${x.qty||''}" placeholder="Qty" oninput="lineChange(${i},'qty',this.value)"><input type="number" min="0" step="0.01" value="${x.rate||''}" placeholder="Rate" oninput="lineChange(${i},'rate',this.value)"><button type="button" onclick="removeLine(${i})">×</button></div>`;
+    }).join('');
+  }
+  function lineChange(i,k,v){editor[i][k]=k==='description'?v:num(v);updateTotal()}
+  function addLine(){editor.push({description:'',qty:'',rate:''});refreshLines()}
+  function removeLine(i){if(editor.length>1)editor.splice(i,1);refreshLines()}
+  function updateTotal(){$('#orderTotal').textContent=money(editor.reduce((s,x)=>s+x.qty*x.rate,0))}
+  function refreshLines(){const t=$('#editorType')?.value;if(!t)return;$('#lineRows').innerHTML=lineRows(t);updateTotal()}
+
+  // ---------- Purchases ----------
+  function openPurchase(id){
+    const x=state.purchases.find(p=>p.id===id);
+    editor=x?structuredClone(x.lines):[{description:'',qty:'',rate:''}];
+    show(`<h2>${x?'Edit '+x.id:'New Purchase Order'}</h2><p>Unlimited items; inventory increases automatically.</p>
+    <form class="form" onsubmit="savePurchase(event,'${id||''}')">
+      <input id="editorType" type="hidden" value="purchase">
+      <label>Vendor<input name="vendor" value="${esc(x?.vendor??state.vendors[0]?.name??'')}" required></label>
+      <div class="line-editor"><div class="panel-head"><b>Items</b><button type="button" class="outline" onclick="addLine()">＋ Item</button></div><div id="lineRows">${lineRows('purchase')}</div><div class="total"><span>Total</span><b id="orderTotal">${money(editor.reduce((s,z)=>s+z.qty*z.rate,0))}</b></div></div>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save PO</button></div>
+    </form>`);
+  }
+  function applyPO(lines,m){
+    lines.forEach(l=>{
+      let p=state.products.find(x=>x.name===l.description);
+      if(p){p.stock=Math.max(0,p.stock+l.qty*m);if(m>0)p.cost=l.rate}
+      else if(m>0){state.products.push({id:'PRD-'+String(state.products.length+1).padStart(3,'0'),name:l.description,stock:l.qty,cost:l.rate,price:l.rate,reorder:0})}
+    });
+  }
+  function savePurchase(e,id){
+    e.preventDefault();
+    const valid=editor.filter(x=>x.description&&x.qty>0);
+    const f=new FormData(e.target),vendor=(f.get('vendor')||'').trim();
+    if(!vendor)return toast('Vendor name is required',true);
+    if(!valid.length)return toast('Add at least one valid item',true);
+    if(id){
+      const x=state.purchases.find(x=>x.id===id);
+      if(!x)return toast('Purchase order no longer exists',true);
+      applyPO(x.lines,-1);
+      x.vendor=vendor;x.lines=valid;x.total=valid.reduce((s,z)=>s+z.qty*z.rate,0);
+      applyPO(valid,1);
+      log('Purchasing','Updated',id);
+    }else{
+      const newId='PO-'+String(state.purchases.length+1).padStart(4,'0');
+      const x={id:newId,vendor,date:new Date().toLocaleDateString('en-GB'),lines:valid,total:valid.reduce((s,z)=>s+z.qty*z.rate,0)};
+      state.purchases.push(x);applyPO(valid,1);
+      log('Purchasing','Created',newId);
+    }
+    persist();closeModal();render();toast('Purchase and inventory updated');
+  }
+
+  // ---------- Invoices ----------
+  function openInvoice(id){
+    const x=state.invoices.find(p=>p.id===id);
+    editor=x?structuredClone(x.lines):[{description:'',qty:'',rate:''}];
+    const sid=x?x.shopId:'OTSR'+String(state.retailers.length+1).padStart(4,'0');
+    if(!x&&!state.products.length){toast('Add products in Inventory first',true);return;}
+    show(`<h2>${x?'Edit '+x.id:'New Invoice'}</h2><p>Saving reduces stock and updates achievements.</p>
+    <form class="form" onsubmit="saveInvoice(event,'${id||''}')">
+      <input id="editorType" type="hidden" value="invoice">
+      <div class="grid"><label>Customer<input name="customer" value="${esc(x?.customer)}" required></label><label>Shop ID<input class="auto" name="shopId" value="${sid}" readonly></label></div>
+      <div class="line-editor"><div class="panel-head"><b>Items</b><button type="button" class="outline" onclick="addLine()">＋ Item</button></div><div id="lineRows">${lineRows('invoice')}</div><div class="total"><span>Total</span><b id="orderTotal">${money(editor.reduce((s,z)=>s+z.qty*z.rate,0))}</b></div></div>
+      <label>Discount<input name="discount" type="number" min="0" step="0.01" value="${x?.discount||0}"></label>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save Invoice</button></div>
+    </form>`);
+  }
+  function saveInvoice(e,id){
+    e.preventDefault();
+    const valid=editor.filter(x=>x.description&&x.qty>0);
+    if(!valid.length)return toast('Add at least one valid item',true);
+    const old=state.invoices.find(x=>x.id===id);
+    const available=n=>(state.products.find(p=>p.name===n)?.stock||0)+(old?.lines.filter(l=>l.description===n).reduce((s,l)=>s+l.qty,0)||0);
+    for(const n of [...new Set(valid.map(x=>x.description))]){
+      if(valid.filter(x=>x.description===n).reduce((s,x)=>s+x.qty,0)>available(n))return toast('Insufficient stock: '+n,true);
+    }
+    state.products.forEach(p=>{
+      const oq=old?.lines.filter(x=>x.description===p.name).reduce((s,x)=>s+x.qty,0)||0;
+      const nq=valid.filter(x=>x.description===p.name).reduce((s,x)=>s+x.qty,0);
+      p.stock+=oq-nq;
+    });
+    const f=new FormData(e.target),discount=num(f.get('discount'));
+    if(discount<0)return toast('Discount cannot be negative',true);
+    const total=Math.max(0,valid.reduce((s,x)=>s+x.qty*x.rate,0)-discount);
+    const cogs=valid.reduce((s,x)=>s+(state.products.find(p=>p.name===x.description)?.cost||0)*x.qty,0);
+    const sid=f.get('shopId'),customer=(f.get('customer')||'').trim();
+    if(!customer)return toast('Customer name is required',true);
+    const retailer=state.retailers.find(x=>x.id===sid);
+    if(retailer)retailer.name=customer;else state.retailers.push({id:sid,name:customer});
+    let savedId;
+    if(old){
+      Object.assign(old,{customer,lines:valid,discount,total,cogs});
+      log('Invoices','Updated',id);
+      savedId=id;
+    }else{
+      const newId='INV-'+String(state.invoices.length+1).padStart(4,'0');
+      state.invoices.push({id:newId,shopId:sid,customer,date:new Date().toLocaleDateString('en-GB'),lines:valid,discount,total,cogs});
+      log('Invoices','Created',newId);
+      savedId=newId;
+    }
+    persist();
+    tab='invoices';renderNav();render();
+    toast('Invoice, inventory and targets updated');
+    confirmPrint(savedId);
+  }
+  function confirmPrint(invId){
+    show(`<h2>Invoice Saved</h2><p>Do you want to print this invoice now?</p>
+    <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">No, go to Invoices</button><button class="primary" onclick="closeModal();printInvoice('${invId}')">Yes, Print</button></div>`);
+  }
+  function deleteInvoice(id){
+    if(!confirm('Delete invoice '+id+'? Stock will be restored. This cannot be undone.'))return;
+    const x=state.invoices.find(i=>i.id===id);
+    if(!x)return;
+    x.lines.forEach(l=>{const p=state.products.find(p=>p.name===l.description);if(p)p.stock+=l.qty});
+    state.invoices=state.invoices.filter(i=>i.id!==id);
+    log('Invoices','Deleted',id);
+    persist();render();toast('Invoice deleted and stock restored');
+  }
+
+  // ---------- Returns ----------
+  function openReturn(){
+    if(!state.invoices.length)return toast('Create an invoice first',true);
+    const inv=state.invoices[state.invoices.length-1];
+    show(`<h2>Record Return</h2><p>Only Good items return to inventory.</p>
+    <form class="form" onsubmit="saveReturn(event)">
+      <label>Invoice<select name="invoice" onchange="returnItems(this.value)">${state.invoices.map(x=>`<option value="${x.id}" ${x.id===inv.id?'selected':''}>${x.id} · ${esc(x.customer)}</option>`).join('')}</select></label>
+      <label>Item<select id="returnItem" name="item">${inv.lines.map(x=>`<option>${esc(x.description)}</option>`).join('')}</select></label>
+      <div class="grid"><label>Quantity<input name="qty" type="number" min="1" step="1" placeholder="Qty" required></label><label>Condition<select name="condition"><option>Good</option><option>Damaged</option></select></label></div>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save Return</button></div>
+    </form>`);
+  }
+  function returnItems(id){const x=state.invoices.find(i=>i.id===id);if(x)$('#returnItem').innerHTML=x.lines.map(l=>`<option>${esc(l.description)}</option>`).join('')}
+  function saveReturn(e){
+    e.preventDefault();
+    const f=new FormData(e.target),inv=state.invoices.find(x=>x.id===f.get('invoice'));
+    if(!inv)return toast('Invoice not found',true);
+    const line=inv.lines.find(x=>x.description===f.get('item'));
+    if(!line)return toast('Item not found on invoice',true);
+    const qty=num(f.get('qty')),condition=f.get('condition');
+    if(qty<1)return toast('Quantity must be at least 1',true);
+    if(qty>line.qty)return toast('Quantity is greater than invoice quantity',true);
+    const p=state.products.find(x=>x.name===line.description);
+    if(condition==='Good'&&p)p.stock+=qty;
+    if(condition==='Damaged'&&p)p.damaged=(p.damaged||0)+qty;
+    const id='RET-'+String(state.returns.length+1).padStart(4,'0');
+    state.returns.push({id,invoiceId:inv.id,item:line.description,qty,condition,refund:line.rate*qty,cost:p?.cost||0,date:new Date().toLocaleDateString('en-GB')});
+    log('Returns','Created',id);
+    persist();closeModal();render();toast(condition==='Good'?'Return added to stock':'Damaged item recorded — flagged in Inventory');
+  }
+
+  // ---------- Expenses ----------
+  function openExpense(id){
+    const x=state.expenses.find(e=>e.id===id);
+    show(`<h2>${x?'Edit Expense':'New Expense'}</h2><p>Recorded expenses reduce Net Profit in the P&amp;L report.</p>
+    <form class="form" onsubmit="saveExpense(event,'${id||''}')">
+      <label>Category<select name="category">${EXPENSE_CATEGORIES.map(c=>`<option ${x?.category===c?'selected':''}>${c}</option>`).join('')}</select></label>
+      <label>Amount<input name="amount" type="number" min="0" step="0.01" value="${x?.amount??''}" required></label>
+      <label>Description (optional)<input name="note" value="${esc(x?.note)}" placeholder="e.g. August electricity bill"></label>
+      <label>Date<input name="date" type="date" value="${x?toIsoDate(x.date):new Date().toISOString().slice(0,10)}"></label>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save Expense</button></div>
+    </form>`);
+  }
+  function toIsoDate(dGB){const[d,m,y]=dGB.split('/');return `${y}-${m}-${d}`}
+  function fromIsoDate(iso){const[y,m,d]=iso.split('-');return `${d}/${m}/${y}`}
+  function saveExpense(e,id){
+    e.preventDefault();
+    const f=new FormData(e.target),amount=num(f.get('amount'));
+    if(amount<=0)return toast('Amount must be greater than 0',true);
+    const dateVal=f.get('date')?fromIsoDate(f.get('date')):new Date().toLocaleDateString('en-GB');
+    const data={category:f.get('category'),amount,note:(f.get('note')||'').trim(),date:dateVal};
+    if(id){const rec=state.expenses.find(x=>x.id===id);if(!rec)return toast('Expense no longer exists',true);Object.assign(rec,data);log('Expenses','Updated',id)}
+    else{const newId='EXP-'+String(state.expenses.length+1).padStart(4,'0');state.expenses.push({id:newId,...data});log('Expenses','Created',newId)}
+    persist();closeModal();render();toast('Expense saved');
+  }
+  function deleteExpense(id){
+    if(!confirm('Delete this expense record?'))return;
+    state.expenses=state.expenses.filter(x=>x.id!==id);
+    log('Expenses','Deleted',id);
+    persist();render();toast('Expense deleted');
+  }
+
+  // ---------- Targets ----------
+  function openTarget(id){
+    const x=state.targets.find(t=>t.id===id);
+    show(`<h2>${x?'Edit Target':'New Target'}</h2><p>Achievement comes from invoice items.</p>
+    <form class="form" onsubmit="saveTarget(event,'${id||''}')">
+      <label>Item<select name="item"><option ${x?.item==='All Products'?'selected':''}>All Products</option>${state.products.map(p=>`<option ${x?.item===p.name?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+      <div class="grid"><label>Quantity Target<input name="qty" type="number" min="0" step="1" value="${x?.quantityTarget||0}"></label><label>Value Target<input name="value" type="number" min="0" step="0.01" value="${x?.valueTarget||0}"></label></div>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save Target</button></div>
+    </form>`);
+  }
+  function saveTarget(e,id){
+    e.preventDefault();
+    const f=new FormData(e.target),data={item:f.get('item'),quantityTarget:num(f.get('qty')),valueTarget:num(f.get('value'))};
+    if(id){const rec=state.targets.find(x=>x.id===id);if(!rec)return toast('Target no longer exists',true);Object.assign(rec,data);log('Targets','Updated',id)}
+    else{const newId='TGT-'+String(state.targets.length+1).padStart(3,'0');state.targets.push({id:newId,...data});log('Targets','Created',newId)}
+    persist();closeModal();render();toast('Target saved');
+  }
+  function deleteTarget(id){
+    if(!confirm('Delete this target?'))return;
+    state.targets=state.targets.filter(x=>x.id!==id);
+    log('Targets','Deleted',id);
+    persist();render();toast('Target deleted');
+  }
+
+  // ---------- Settings ----------
+  function saveSettings(e){
+    e.preventDefault();
+    const f=new FormData(e.target);
+    state.company={...state.company,name:(f.get('name')||'').trim(),br:(f.get('br')||'').trim(),address:(f.get('address')||'').trim(),phone:(f.get('phone')||'').trim()};
+    log('Settings','Updated','Company');
+    persist();render();toast('Settings saved');
+  }
+  function savePrinterSettings(e){
+    e.preventDefault();
+    const f=new FormData(e.target);
+    state.company={...state.company,printerWidth:f.get('printerWidth'),printerName:(f.get('printerName')||'').trim(),printerNote:(f.get('printerNote')||'').trim()};
+    log('Settings','Updated','Printer setup');
+    persist();render();toast('Printer setup saved');
+  }
+  function uploadLogo(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    if(!file.type.startsWith('image/'))return toast('Please choose an image file',true);
+    if(file.size>1024*1024*1.5)return toast('Image too large — please use a file under 1.5MB',true);
+    const r=new FileReader();
+    r.onload=()=>{
+      state.company.logo=r.result;
+      log('Settings','Updated','Company logo');
+      persist();render();toast('Logo uploaded');
+    };
+    r.onerror=()=>toast('Could not read image',true);
+    r.readAsDataURL(file);
+    e.target.value='';
+  }
+  function removeLogo(){
+    if(!confirm('Remove company logo?'))return;
+    state.company.logo='';
+    log('Settings','Updated','Company logo removed');
+    persist();render();toast('Logo removed');
+  }
+
+  // ---------- Print ----------
+  function printInvoice(id){
+    const x=state.invoices.find(i=>i.id===id);
+    if(!x)return toast('Invoice not found',true);
+    const c=state.company;
+    const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
+    const html=`<html><body style="font-family:monospace;font-size:22px;text-align:center;width:100%;margin:0;padding:4px">
+      <h2 style="margin:0 0 8px">${esc(c.name||'YOUR COMPANY')}</h2>
+      <p style="margin:0 0 8px">${esc(c.address||'')}${c.br?'<br>BR: '+esc(c.br):''}${c.phone?'<br>'+esc(c.phone):''}</p>
+      <hr>
+      <table style="width:100%;text-align:left;border-collapse:collapse">
+      <tr><td>Invoice</td><td style="text-align:right"><b>${x.id}</b></td></tr>
+      <tr><td>Date</td><td style="text-align:right"><b>${x.date}</b></td></tr>
+      <tr><td>Shop ID</td><td style="text-align:right"><b>${x.shopId}</b></td></tr>
+      <tr><td>Customer</td><td style="text-align:right"><b>${esc(x.customer)}</b></td></tr>
+      </table>
+      <hr>
+      <table style="width:100%;text-align:left;border-collapse:collapse">
+      ${x.lines.map(l=>`<tr><td colspan="2"><b>${esc(l.description)}</b></td></tr><tr><td>${l.qty} x ${l.rate.toFixed(2)}</td><td style="text-align:right"><b>${(l.qty*l.rate).toFixed(2)}</b></td></tr>`).join('')}
+      </table>
+      <hr>
+      <table style="width:100%;text-align:left;border-collapse:collapse">
+      <tr><td>Subtotal</td><td style="text-align:right"><b>${subtotal.toFixed(2)}</b></td></tr>
+      ${x.discount?`<tr><td>Discount</td><td style="text-align:right"><b>-${Number(x.discount).toFixed(2)}</b></td></tr>`:''}
+      <tr><td><b>TOTAL</b></td><td style="text-align:right"><b>${x.total.toFixed(2)}</b></td></tr>
+      </table>
+      <hr>
+      <p style="margin:8px 0 0">Powered by IMS Apps<br>Custom Business Software Solutions<br>Call: 0774 422 444</p>
+      </body></html>`;
+    try{
+      const dataUrl='data:text/html,'+encodeURIComponent(html);
+      const printUrl='print://escpos.org/escpos/bt/print?srcTp=uri&srcObj=html&numCopies=1&src='+encodeURIComponent(dataUrl);
+      const a=document.createElement('a');
+      a.href=printUrl;
+      a.style.display='none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{try{document.body.removeChild(a)}catch(e){}},1000);
+      toast('Sending to printer — if nothing happens, open ESC POS Print Service and check it\'s connected to your printer');
+    }catch(err){
+      toast('Could not open printer app: '+(err.message||'unknown error'),true);
+    }
+  }
+
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+  renderNav();render();
+  </script>
+</body>
+</html>
