@@ -220,7 +220,19 @@
     else if(tab==='settings')app.innerHTML=settingsPage();
   }
   function recordsPage(title,text,action,body){return `<section class="content"><div class="hero"><div><h2>${title}</h2><p>${text}</p></div><button class="primary" onclick="${action}">＋ New</button></div><article class="card">${body}</article></section>`}
-  function achieved(t){const a=state.invoices.flatMap(x=>x.lines).filter(x=>t.item==='All Products'||x.description===t.item);return {qty:a.reduce((s,x)=>s+x.qty,0),value:a.reduce((s,x)=>s+x.qty*x.rate,0)}}
+  function achieved(t){
+    const matches=x=>t.item==='All Products'||x.description===t.item;
+    const sold=state.invoices.flatMap(x=>x.lines).filter(matches);
+    const soldQty=sold.reduce((s,x)=>s+x.qty,0);
+    const soldValue=sold.reduce((s,x)=>s+x.qty*x.rate,0);
+    // Net out Good-condition returns so a sale that gets returned doesn't keep counting toward
+    // the target — Damaged returns are left in place since the item genuinely was sold (a
+    // separate loss is tracked for those, not an un-sale).
+    const returnedGood=state.returns.filter(r=>r.condition==='Good'&&(t.item==='All Products'||r.item===t.item));
+    const returnedQty=returnedGood.reduce((s,r)=>s+r.qty,0);
+    const returnedValue=returnedGood.reduce((s,r)=>s+r.refund,0);
+    return {qty:Math.max(0,soldQty-returnedQty),value:Math.max(0,soldValue-returnedValue)};
+  }
 
   function dashboard(f){
     const rows=state.targets.map(t=>({...t,...achieved(t)})),max=Math.max(1,...rows.flatMap(x=>[x.quantityTarget,x.qty]));
@@ -334,16 +346,22 @@
     </section>`;
   }
   function invoiceTable(){return state.invoices.length?`<div class="table-wrap"><table><tr><th>Invoice</th><th>Shop ID</th><th>Shop Name</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${[...state.invoices].reverse().map(x=>`<tr><td><a href="javascript:void(0)" onclick="viewInvoice('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${x.id}</a></td><td>${x.shopId}</td><td><a href="javascript:void(0)" onclick="viewCustomer('${x.shopId}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${esc(x.customer)}</a></td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="openInvoice('${x.id}')">Edit</button><button class="edit" onclick="printInvoice('${x.id}')">Print</button><button class="del" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No invoices yet','Create an invoice after adding stock.',"openInvoice()")}
+  function shopNetSales(shopId){
+    const invs=state.invoices.filter(x=>x.shopId===shopId);
+    const grossTotal=invs.reduce((s,x)=>s+x.total,0);
+    const invIds=new Set(invs.map(x=>x.id));
+    const refunds=state.returns.filter(r=>invIds.has(r.invoiceId)).reduce((s,r)=>s+r.refund,0);
+    return {invs,grossTotal,refunds,netTotal:Math.max(0,grossTotal-refunds)};
+  }
   function viewCustomers(){
     show(`<h2>Customer List</h2><p>All customers, added automatically the first time they're invoiced.</p>
-    ${state.retailers.length?`<div class="table-wrap"><table><tr><th>Shop ID</th><th>Name</th><th>Invoices</th><th>Total Sales</th><th></th></tr>${state.retailers.map(r=>{const invs=state.invoices.filter(x=>x.shopId===r.id);const totalSales=invs.reduce((s,x)=>s+x.total,0);return `<tr><td><b>${r.id}</b></td><td>${esc(r.name)}</td><td>${invs.length}</td><td><b>${money(totalSales)}</b></td><td><button class="edit" onclick="closeModal();viewCustomer('${r.id}')">View</button></td></tr>`}).join('')}</table></div>`:empty('No customers yet','Customers are added automatically when you create an invoice.')}
+    ${state.retailers.length?`<div class="table-wrap"><table><tr><th>Shop ID</th><th>Name</th><th>Invoices</th><th>Net Sales</th><th></th></tr>${state.retailers.map(r=>{const {invs,netTotal}=shopNetSales(r.id);return `<tr><td><b>${r.id}</b></td><td>${esc(r.name)}</td><td>${invs.length}</td><td><b>${money(netTotal)}</b></td><td><button class="edit" onclick="closeModal();viewCustomer('${r.id}')">View</button></td></tr>`}).join('')}</table></div>`:empty('No customers yet','Customers are added automatically when you create an invoice.')}
     <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
   }
   function viewCustomer(shopId){
     const r=state.retailers.find(x=>x.id===shopId);
     if(!r)return toast('Customer not found',true);
-    const invs=state.invoices.filter(x=>x.shopId===shopId);
-    const totalSales=invs.reduce((s,x)=>s+x.total,0);
+    const {invs,netTotal}=shopNetSales(shopId);
     show(`<div class="portrait-preview">
       <h2 style="text-align:center">${esc(r.name)}</h2>
       <p style="text-align:center;color:var(--muted)">Shop ID: ${r.id}</p>
@@ -354,7 +372,7 @@
       </div>`:''}
       <div class="pnl-section">
         <div class="pnl-row"><span>Total Invoices</span><span><b>${invs.length}</b></span></div>
-        <div class="pnl-row"><span>Total Sales</span><span><b>${money(totalSales)}</b></span></div>
+        <div class="pnl-row"><span>Net Sales</span><span><b>${money(netTotal)}</b></span></div>
       </div>
       ${invs.length?`<div class="pnl-section"><h4>Invoice History</h4>${invs.map(x=>`<div class="pnl-row"><span>${x.id} (${x.date})</span><span><b>${money(x.total)}</b></span></div>`).join('')}</div>`:''}
     </div>
@@ -458,7 +476,7 @@
   function reportSets(f){
     return [
       {n:'Invoices',r:[['Invoice','Date','Shop ID','Customer','Item','Batch(es)','Qty','Rate','Line Total','Discount','Invoice Total'],...state.invoices.flatMap(x=>x.lines.map((l,i)=>[x.id,x.date,x.shopId,x.customer,l.description,(l.batches||[]).map(b=>b.batchNo+':'+b.qty).join(', '),l.qty,l.rate,l.qty*l.rate,i===0?x.discount:'',i===0?x.total:'']))]},
-      {n:'Customers',r:[['Shop ID','Name','Total Invoices','Total Sales'],...state.retailers.map(x=>{const invs=state.invoices.filter(i=>i.shopId===x.id);return[x.id,x.name,invs.length,invs.reduce((s,i)=>s+i.total,0)]})]},
+      {n:'Customers',r:[['Shop ID','Name','Total Invoices','Net Sales'],...state.retailers.map(x=>{const {invs,netTotal}=shopNetSales(x.id);return[x.id,x.name,invs.length,netTotal]})]},
       {n:'Vendors',r:[['Vendor ID','Name','Phone','WhatsApp','Terms','Address','Bank Name','Branch','Account Number','Account Holder','Notes'],...state.vendors.map(x=>[x.id,x.name,x.phone,x.whatsapp,x.terms,x.address,x.bankName,x.bankBranch,x.accountNumber,x.accountHolder,x.notes])]},
       {n:'Purchase Orders',r:(()=>{const rows=[['PO','Vendor','Batch Number','Date','Item','Qty','Rate','Line Total','PO Total']];state.purchases.forEach(x=>{x.lines.forEach((l,i)=>rows.push([x.id,x.vendor,x.batchNo||'',x.date,l.description,l.qty,l.rate,l.qty*l.rate,i===0?x.total:'']))});rows.push(['','','','','','','','Grand Total',state.purchases.reduce((s,x)=>s+x.total,0)]);return rows})()},
       {n:'Inventory',r:[['Product ID','Product','Stock','Reorder Level','Cost','Selling','Stock Value'],...state.products.map(x=>[x.id,x.name,x.stock,x.reorder,x.cost,x.price,x.stock*x.cost])]},
@@ -665,6 +683,29 @@
 
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   function download(name,content,type){
+    // Try the File System Access API first (showSaveFilePicker) — supported on Chrome 132+ for
+    // Android/WebView. This triggers Android's real native download UI (progress notification,
+    // saved to Downloads), which is exactly the experience the old <a download> trick could never
+    // reliably produce in a wrapped WebView. Falls through to sharing/blob methods if unsupported.
+    if(typeof window.showSaveFilePicker==='function'){
+      (async()=>{
+        try{
+          const handle=await window.showSaveFilePicker({suggestedName:name});
+          const writable=await handle.createWritable();
+          await writable.write(new Blob([content],{type}));
+          await writable.close();
+          toast('Saved: '+name);
+        }catch(err){
+          // User cancelled the picker, or the API failed silently — fall back to sharing
+          if(err&&err.name==='AbortError'){toast('Save cancelled',true);return}
+          downloadViaShareOrBlob(name,content,type);
+        }
+      })();
+      return;
+    }
+    downloadViaShareOrBlob(name,content,type);
+  }
+  function downloadViaShareOrBlob(name,content,type){
     // Wrapped WebView APKs (e.g. Appilix) cannot reliably save blob: downloads through Android's
     // real Download Manager. Try native file-sharing first (keeps the correct filename/extension for
     // both .json and .xls). If that's unavailable, fall back per file type: JSON can be shared as
