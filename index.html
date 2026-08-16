@@ -9,11 +9,12 @@
   <style>
     :root{--navy:#0f2333;--navy2:#1c3d4f;--teal:#0f8f83;--tealDark:#0b6b62;--mint:#d9f0ea;--bg:#eef3f1;--card:#ffffff;--line:#dde7e4;--ink:#0f2430;--muted:#6d818a;--amber:#c88b31;--red:#b23a2b}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;overscroll-behavior:none}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent;display:flex;flex-direction:column;overflow:hidden}
     button,input,select,textarea{font:inherit}
     button{cursor:pointer;-webkit-appearance:none}
-    input,select,textarea{-webkit-appearance:none}
-    .top{height:64px;background:linear-gradient(135deg,var(--card),var(--mint) 180%);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 15px;position:sticky;top:0;z-index:10;gap:10px}
+    input:not([type="checkbox"]):not([type="radio"]),select,textarea{-webkit-appearance:none}
+    .top{height:64px;flex:0 0 auto;background:linear-gradient(135deg,var(--card),var(--mint) 180%);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 15px;z-index:30;gap:10px}
     .top small{font-size:9.5px;letter-spacing:.15em;color:var(--tealDark);font-weight:800}
     .top h1{font-size:19px;margin:3px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:800;color:var(--navy)}
     .primary,.outline,.dark,.danger{min-height:44px;border-radius:9px;padding:0 14px;font-weight:800;white-space:nowrap}
@@ -52,12 +53,13 @@
     .good{background:#d5ece6;color:#087165}
     .bad{background:#f1dfc2;color:#8b5d1b}
     .low{background:#f6e2dd;color:#8a3822}
-    .nav{position:fixed;left:0;right:0;bottom:0;height:calc(68px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:linear-gradient(180deg,var(--navy2),var(--navy));display:flex;overflow-x:auto;z-index:20;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 16px rgba(0,0,0,.2)}
-    .nav button{min-width:64px;flex:1 0 auto;border:0;background:transparent;color:#8ba5ab;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding-bottom:4px;transition:color .15s}
-    .nav button.active{color:#5fe8d5}
-    .nav button.active span{text-shadow:0 0 12px rgba(95,232,213,.5)}
-    .nav span{font-size:19px}
-    .nav small{font-size:9.5px}
+    .nav{flex:0 0 auto;height:calc(80px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:linear-gradient(180deg,var(--navy2),var(--navy));display:flex;overflow-x:auto;z-index:20;-webkit-overflow-scrolling:touch;box-shadow:0 -4px 16px rgba(0,0,0,.2)}
+    main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+    .nav button{min-width:68px;flex:1 0 auto;border:0;background:transparent;color:#8ba5ab;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding-bottom:4px;transition:color .15s;position:relative}
+    .nav button.active{color:#39ff8f}
+    .nav button.active span{text-shadow:0 0 6px #39ff8f,0 0 14px #39ff8f,0 0 22px rgba(57,255,143,.7);font-weight:900}
+    .nav span{font-size:24px}
+    .nav small{font-size:11.5px;font-weight:700}
     .chart{padding:15px;margin-top:13px}
     .chart-area{height:210px;display:flex;gap:14px;align-items:flex-end;overflow-x:auto;border-bottom:1px solid #9dafac;padding:15px 8px 0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 48px,rgba(90,115,118,.12) 49px);-webkit-overflow-scrolling:touch}
     .group{height:100%;min-width:66px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px}
@@ -78,7 +80,8 @@
     .form{display:grid;gap:13px}
     .grid{display:grid;grid-template-columns:1fr;gap:12px}
     label{display:grid;gap:6px;color:var(--muted);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-    input,select,textarea{height:42px;border:1px solid #abc2bd;background:#e7efed;border-radius:8px;padding:0 10px;color:var(--ink);width:100%}
+    input:not([type="checkbox"]):not([type="radio"]),select,textarea{height:42px;border:1px solid #abc2bd;background:#e7efed;border-radius:8px;padding:0 10px;color:var(--ink);width:100%}
+    input[type="checkbox"],input[type="radio"]{width:20px;height:20px;accent-color:var(--teal);cursor:pointer}
     textarea{height:80px;padding-top:10px}
     .auto{background:var(--mint);font-weight:800;color:#0e665f}
     .hint{font-size:12px;color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0}
@@ -88,7 +91,7 @@
     .line button{border:0;border-radius:7px;background:#f6e2dd;color:#8a3822;font-weight:800}
     .total{display:flex;justify-content:space-between;background:var(--navy);color:#e8faf7;border-radius:8px;padding:14px;margin-top:10px}
     .modal-actions{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:-20px;background:var(--card);padding:12px 0 18px}
-    .toast{position:fixed;bottom:calc(82px + env(safe-area-inset-bottom));left:14px;right:14px;background:var(--navy);color:#e8faf7;padding:13px;border-radius:10px;text-align:center;z-index:50;font-size:13.5px}
+    .toast{position:fixed;bottom:calc(94px + env(safe-area-inset-bottom));left:14px;right:14px;background:var(--navy);color:#e8faf7;padding:13px;border-radius:10px;text-align:center;z-index:50;font-size:13.5px}
     .toast.err-toast{background:#7a2c1c}
     .desktop{display:none}
     .settings-grid{display:grid;gap:12px}
@@ -139,10 +142,11 @@
   <script>
   const tabs=[['dashboard','▦','Dashboard'],['invoices','▤','Invoices'],['vendors','◇','Vendors'],['purchases','↓','Purchasing'],['inventory','□','Inventory'],['returns','↺','Returns'],['expenses','＄','Expenses'],['targets','◎','Targets'],['reports','↗','Reports'],['settings','⚙','Settings']];
   const DEFAULT_EXPENSE_CATEGORIES=['Rent','Salaries & Wages','Utilities (Electricity/Water)','Transport & Fuel','Communication','Marketing & Advertising','Repairs & Maintenance','Office Supplies','Bank Charges & Fees','Taxes & Licenses','Other'];
+  const SL_BANKS=['Amana Bank PLC','Bank of Ceylon','Bank of China Limited','Cargills Bank PLC','Citibank N.A.','Commercial Bank of Ceylon PLC','Deutsche Bank AG','DFCC Bank PLC','Habib Bank Ltd','Hatton National Bank PLC','Housing Development Finance Corporation Bank of Sri Lanka (HDFC)','Indian Bank','Indian Overseas Bank','MCB Bank Ltd','National Development Bank PLC','National Savings Bank','Nations Trust Bank PLC','Pan Asia Banking Corporation PLC',"People's Bank",'Pradeshiya Sanwardhana Bank','Public Bank Berhad','Sampath Bank PLC','Sanasa Development Bank PLC','Seylan Bank PLC','Standard Chartered Bank','State Bank of India','State Mortgage & Investment Bank','The Hongkong & Shanghai Banking Corporation Ltd (HSBC)','Union Bank of Colombo PLC','Other'];
   const STORAGE_KEY='ims_mobile_data_v2';
   const CHART_PALETTE=[['#a9c8f0','#1e6bd6'],['#b9e3d8','#0f8f6b'],['#f6cf9e','#c8781f'],['#e3b9dd','#9b2ea3'],['#f4b8b8','#d62e2e'],['#c7c2f0','#5c3ed6'],['#a9e3e0','#0f9490'],['#f0d9a9','#c89a1f']];
-  const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',printerWidth:'58',printerName:'',printerNote:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],expenseCategories:[],targets:[],batches:[],audit:[]};
-  let state=loadState(),tab='dashboard',editor=[];
+  const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',qrCode:'',printerWidth:'58',printerName:'',printerNote:'',printHeaderFooter:true,customHeader:'',customFooter:'',customFooter2:'',customFooter3:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],expenseCategories:[],targets:[],batches:[],audit:[]};
+  let state=loadState(),tab='dashboard',editor=[],_currentVendorEditId='';
   const EXPENSE_CATEGORIES=()=>[...DEFAULT_EXPENSE_CATEGORIES,...(state.expenseCategories||[])];
 
   function loadState(){
@@ -208,7 +212,7 @@
     else if(tab==='vendors')app.innerHTML=recordsPage('Vendor Database','Manage suppliers.',"openVendor()",vendorTable());
     else if(tab==='inventory')app.innerHTML=recordsPage('Inventory','Stock quantity comes only from Purchase Orders. Use "+ New" here just to set up product name, cost and price.',"openProduct()",productTable());
     else if(tab==='purchases')app.innerHTML=recordsPage('Purchase Orders','Unlimited items with automatic inventory updates.',"openPurchase()",purchaseTable());
-    else if(tab==='invoices')app.innerHTML=recordsPage('Invoices','Shop IDs start from OTSR0001.',"openInvoice()",invoiceTable());
+    else if(tab==='invoices')app.innerHTML=invoicesPage();
     else if(tab==='returns')app.innerHTML=recordsPage('Sales Returns','Only Good / Resellable items return to stock.',"openReturn()",returnTable());
     else if(tab==='expenses')app.innerHTML=expensesPage(f);
     else if(tab==='targets')app.innerHTML=targetsPage();
@@ -263,7 +267,7 @@
   function viewVendor(id){
     const x=state.vendors.find(v=>v.id===id);
     if(!x)return toast('Vendor not found',true);
-    const row=(label,val)=>val?`<div class="pnl-row"><span>${label}</span><span>${esc(val)}</span></div>`:'';
+    const row=(label,val)=>val?`<div class="pnl-row"><span>${label}</span><span style="text-align:right;max-width:60%">${esc(val)}</span></div>`:'';
     show(`<h2>${esc(x.name)}</h2><p>Vendor ID: ${x.id}</p>
     <div class="pnl-section">
       ${row('Phone',x.phone)}
@@ -302,7 +306,7 @@
     persist();render();toast('Damage return cleared');
   }
 
-  function purchaseTable(){return state.purchases.length?`<div class="table-wrap"><table><tr><th>PO</th><th>Vendor</th><th>Batch</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${state.purchases.map(x=>`<tr><td><a href="javascript:void(0)" onclick="viewPurchase('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${x.id}</a></td><td>${esc(x.vendor)}</td><td><small>${esc(x.batchNo||'—')}</small></td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="openPurchase('${x.id}')">Edit</button></td></tr>`).join('')}</table></div>`:empty('No purchase orders','Create an order with unlimited items.',"openPurchase()")}
+  function purchaseTable(){return state.purchases.length?`<div class="table-wrap"><table><tr><th>PO</th><th>Vendor</th><th>Batch</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${[...state.purchases].reverse().map(x=>`<tr><td><a href="javascript:void(0)" onclick="viewPurchase('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${x.id}</a></td><td>${esc(x.vendor)}</td><td><small>${esc(x.batchNo||'—')}</small></td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="openPurchase('${x.id}')">Edit</button></td></tr>`).join('')}</table></div>`:empty('No purchase orders','Create an order with unlimited items.',"openPurchase()")}
   function viewPurchase(id){
     const x=state.purchases.find(p=>p.id===id);
     if(!x)return toast('Purchase order not found',true);
@@ -323,7 +327,34 @@
     <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();openPurchase('${x.id}')">Edit</button></div>`);
   }
 
-  function invoiceTable(){return state.invoices.length?`<div class="table-wrap"><table><tr><th>Invoice</th><th>Shop ID</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${state.invoices.map(x=>`<tr><td><a href="javascript:void(0)" onclick="viewInvoice('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${x.id}</a></td><td>${x.shopId}</td><td>${esc(x.customer)}</td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="openInvoice('${x.id}')">Edit</button><button class="edit" onclick="printInvoice('${x.id}')">Print</button><button class="del" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No invoices yet','Create an invoice after adding stock.',"openInvoice()")}
+  function invoicesPage(){
+    return `<section class="content">
+      <div class="hero"><div><h2>Invoices</h2><p>Shop IDs start from OTSR0001.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="outline" onclick="viewCustomers()">◇ Customers</button><button class="primary" onclick="openInvoice()">＋ New</button></div></div>
+      <article class="card">${invoiceTable()}</article>
+    </section>`;
+  }
+  function invoiceTable(){return state.invoices.length?`<div class="table-wrap"><table><tr><th>Invoice</th><th>Shop ID</th><th>Shop Name</th><th>Date</th><th>Items</th><th>Total</th><th></th></tr>${[...state.invoices].reverse().map(x=>`<tr><td><a href="javascript:void(0)" onclick="viewInvoice('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${x.id}</a></td><td>${x.shopId}</td><td><a href="javascript:void(0)" onclick="viewCustomer('${x.shopId}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${esc(x.customer)}</a></td><td>${x.date}</td><td>${x.lines.length}</td><td><b>${money(x.total)}</b></td><td><button class="edit" onclick="openInvoice('${x.id}')">Edit</button><button class="edit" onclick="printInvoice('${x.id}')">Print</button><button class="del" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No invoices yet','Create an invoice after adding stock.',"openInvoice()")}
+  function viewCustomers(){
+    show(`<h2>Customer List</h2><p>All customers, added automatically the first time they're invoiced.</p>
+    ${state.retailers.length?`<div class="table-wrap"><table><tr><th>Shop ID</th><th>Name</th><th>Invoices</th><th>Total Sales</th><th></th></tr>${state.retailers.map(r=>{const invs=state.invoices.filter(x=>x.shopId===r.id);const totalSales=invs.reduce((s,x)=>s+x.total,0);return `<tr><td><b>${r.id}</b></td><td>${esc(r.name)}</td><td>${invs.length}</td><td><b>${money(totalSales)}</b></td><td><button class="edit" onclick="closeModal();viewCustomer('${r.id}')">View</button></td></tr>`}).join('')}</table></div>`:empty('No customers yet','Customers are added automatically when you create an invoice.')}
+    <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
+  }
+  function viewCustomer(shopId){
+    const r=state.retailers.find(x=>x.id===shopId);
+    if(!r)return toast('Customer not found',true);
+    const invs=state.invoices.filter(x=>x.shopId===shopId);
+    const totalSales=invs.reduce((s,x)=>s+x.total,0);
+    show(`<div class="portrait-preview">
+      <h2 style="text-align:center">${esc(r.name)}</h2>
+      <p style="text-align:center;color:var(--muted)">Shop ID: ${r.id}</p>
+      <div class="pnl-section">
+        <div class="pnl-row"><span>Total Invoices</span><span><b>${invs.length}</b></span></div>
+        <div class="pnl-row"><span>Total Sales</span><span><b>${money(totalSales)}</b></span></div>
+      </div>
+      ${invs.length?`<div class="pnl-section"><h4>Invoice History</h4>${invs.map(x=>`<div class="pnl-row"><span>${x.id} (${x.date})</span><span><b>${money(x.total)}</b></span></div>`).join('')}</div>`:''}
+    </div>
+    <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
+  }
   function viewInvoice(id){
     const x=state.invoices.find(i=>i.id===id);
     if(!x)return toast('Invoice not found',true);
@@ -337,7 +368,7 @@
         <div class="pnl-row"><span>Invoice</span><span><b>${x.id}</b></span></div>
         <div class="pnl-row"><span>Date</span><span><b>${x.date}</b></span></div>
         <div class="pnl-row"><span>Shop ID</span><span><b>${x.shopId}</b></span></div>
-        <div class="pnl-row"><span>Customer</span><span><b>${esc(x.customer)}</b></span></div>
+        <div class="pnl-row"><span>Shop Name</span><span><b>${esc(x.customer)}</b></span></div>
       </div>
       <div class="pnl-section">
         <h4>Items</h4>
@@ -383,10 +414,25 @@
       </div>
       <article class="card panel">
         <div class="panel-head"><div><h3>Expense Records</h3><p>All recorded operating costs.</p></div></div>
-        ${rows.length?`<div class="table-wrap"><table><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th></th></tr>${rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td>${esc(x.note)||'—'}</td><td><b>${money(x.amount)}</b></td><td><button class="edit" onclick="openExpense('${x.id}')">Edit</button><button class="del" onclick="deleteExpense('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No expenses recorded','Add rent, salaries, utilities and other costs.',"openExpense()")}
+        ${rows.length?`<div class="table-wrap"><table><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th></th></tr>${rows.map(x=>`<tr><td>${x.date}</td><td><a href="javascript:void(0)" onclick="viewExpense('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${esc(x.category)}</a></td><td>${esc(x.note)||'—'}</td><td><b>${money(x.amount)}</b></td><td><button class="edit" onclick="openExpense('${x.id}')">Edit</button><button class="del" onclick="deleteExpense('${x.id}')">Delete</button></td></tr>`).join('')}</table></div>`:empty('No expenses recorded','Add rent, salaries, utilities and other costs.',"openExpense()")}
       </article>
       ${Object.keys(f.expenseByCategory).length?`<article class="card panel"><div class="panel-head"><div><h3>By Category</h3></div></div><div class="table-wrap"><table><tr><th>Category</th><th>Amount</th><th>% of Total</th></tr>${Object.entries(f.expenseByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`<tr><td>${esc(cat)}</td><td><b>${money(amt)}</b></td><td>${f.expenseTotal?Math.round(amt/f.expenseTotal*100):0}%</td></tr>`).join('')}</table></div></article>`:''}
     </section>`;
+  }
+  function viewExpense(id){
+    const x=state.expenses.find(e=>e.id===id);
+    if(!x)return toast('Expense not found',true);
+    show(`<div class="portrait-preview">
+      <h2 style="text-align:center">${esc(x.category)}</h2>
+      <p style="text-align:center;color:var(--muted)">${x.id}</p>
+      <div class="pnl-section">
+        <div class="pnl-row"><span>Category</span><span style="text-align:right"><b>${esc(x.category)}</b></span></div>
+        <div class="pnl-row"><span>Date</span><span style="text-align:right"><b>${x.date}</b></span></div>
+        <div class="pnl-row"><span>Amount</span><span style="text-align:right"><b>${money(x.amount)}</b></span></div>
+      </div>
+      ${x.note?`<div class="pnl-section"><h4>Description</h4><p style="white-space:pre-wrap">${esc(x.note)}</p></div>`:''}
+    </div>
+    <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();openExpense('${x.id}')">Edit</button></div>`);
   }
 
   function targetsPage(){
@@ -406,8 +452,8 @@
   // ---------- Reports incl. professional P&L ----------
   function reportSets(f){
     return [
-      {n:'Invoices',r:[['Invoice','Date','Shop ID','Retailer','Item','Batch(es)','Qty','Rate','Line Total','Discount','Invoice Total'],...state.invoices.flatMap(x=>x.lines.map((l,i)=>[x.id,x.date,x.shopId,x.customer,l.description,(l.batches||[]).map(b=>b.batchNo+':'+b.qty).join(', '),l.qty,l.rate,l.qty*l.rate,i===0?x.discount:'',i===0?x.total:'']))]},
-      {n:'Retailers',r:[['Shop ID','Name'],...state.retailers.map(x=>[x.id,x.name])]},
+      {n:'Invoices',r:[['Invoice','Date','Shop ID','Customer','Item','Batch(es)','Qty','Rate','Line Total','Discount','Invoice Total'],...state.invoices.flatMap(x=>x.lines.map((l,i)=>[x.id,x.date,x.shopId,x.customer,l.description,(l.batches||[]).map(b=>b.batchNo+':'+b.qty).join(', '),l.qty,l.rate,l.qty*l.rate,i===0?x.discount:'',i===0?x.total:'']))]},
+      {n:'Customers',r:[['Shop ID','Name','Total Invoices','Total Sales'],...state.retailers.map(x=>{const invs=state.invoices.filter(i=>i.shopId===x.id);return[x.id,x.name,invs.length,invs.reduce((s,i)=>s+i.total,0)]})]},
       {n:'Vendors',r:[['Vendor ID','Name','Phone','WhatsApp','Terms','Address','Bank Name','Branch','Account Number','Account Holder','Notes'],...state.vendors.map(x=>[x.id,x.name,x.phone,x.whatsapp,x.terms,x.address,x.bankName,x.bankBranch,x.accountNumber,x.accountHolder,x.notes])]},
       {n:'Purchase Orders',r:(()=>{const rows=[['PO','Vendor','Batch Number','Date','Item','Qty','Rate','Line Total','PO Total']];state.purchases.forEach(x=>{x.lines.forEach((l,i)=>rows.push([x.id,x.vendor,x.batchNo||'',x.date,l.description,l.qty,l.rate,l.qty*l.rate,i===0?x.total:'']))});rows.push(['','','','','','','','Grand Total',state.purchases.reduce((s,x)=>s+x.total,0)]);return rows})()},
       {n:'Inventory',r:[['Product ID','Product','Stock','Reorder Level','Cost','Selling','Stock Value'],...state.products.map(x=>[x.id,x.name,x.stock,x.reorder,x.cost,x.price,x.stock*x.cost])]},
@@ -498,7 +544,7 @@
   function downloadSingleReport(name){const sets=reportSets(financials());const s=sets.find(x=>x.n===name);if(s)xls('IMS_'+name.replace(/ /g,'_'),[s])}
 
   function settingsPage(){
-    const scopes=[['retailers','Retailers'],['vendors','Vendors'],['products','Inventory'],['purchases','Purchase Orders'],['invoices','Invoices'],['returns','Returns'],['expenses','Expenses'],['targets','Targets & Achievements'],['audit','Activity History'],['company','Company Settings']];
+    const scopes=[['retailers','Customers'],['vendors','Vendors'],['products','Inventory'],['purchases','Purchase Orders'],['invoices','Invoices'],['returns','Returns'],['expenses','Expenses'],['targets','Targets & Achievements'],['audit','Activity History'],['company','Company Settings']];
     return `<section class="content">
       <div class="hero"><div><h2>Settings</h2><p>Company profile, backups, restore and activity history.</p></div></div>
       <article class="card panel">
@@ -509,6 +555,14 @@
             <label class="logo-upload-btn">Upload Logo<input type="file" accept="image/*" onchange="uploadLogo(event)" hidden></label>
             ${state.company.logo?'<button type="button" class="del" onclick="removeLogo()">Remove Logo</button>':''}
             <p class="legend">PNG or JPG, square image works best. Stored on this device only.</p>
+          </div>
+        </div>
+        <div class="logo-row">
+          <div class="logo-preview" id="qrPreview">${state.company.qrCode?`<img src="${state.company.qrCode}" alt="QR Code">`:'<span>No QR Code</span>'}</div>
+          <div class="logo-actions">
+            <label class="logo-upload-btn">Upload Payment QR<input type="file" accept="image/*" onchange="uploadQrCode(event)" hidden></label>
+            ${state.company.qrCode?'<button type="button" class="del" onclick="removeQrCode()">Remove QR Code</button>':''}
+            <p class="legend">Shown next to the logo on printed invoices (e.g. bank/mobile payment QR). Square image works best.</p>
           </div>
         </div>
         <form class="form" onsubmit="saveSettings(event)">
@@ -529,12 +583,20 @@
             <label>Printer Name / Model (optional)<input name="printerName" value="${esc(state.company.printerName)}" placeholder="e.g. GOOJPRT Mobile Printer"></label>
           </div>
           <label>Notes (optional)<textarea name="printerNote" placeholder="e.g. Set paper width and pair Bluetooth inside the ESC POS Print Service app">${esc(state.company.printerNote)}</textarea></label>
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;text-transform:none;font-weight:600"><input type="checkbox" name="printHeaderFooter" ${state.company.printHeaderFooter!==false?'checked':''}> Print with Header &amp; Footer</label>
+          <div class="settings-grid">
+            <label>Custom Header Text (optional)<input name="customHeader" value="${esc(state.company.customHeader)}" placeholder="e.g. Thank you for your business"></label>
+            <label>Custom Footer Text 1 (optional)<input name="customFooter" value="${esc(state.company.customFooter)}" placeholder="e.g. Goods once sold cannot be returned"></label>
+            <label>Custom Footer Text 2 (optional)<input name="customFooter2" value="${esc(state.company.customFooter2)}" placeholder="e.g. Thank you for your business"></label>
+            <label>Custom Footer Text 3 (optional)<input name="customFooter3" value="${esc(state.company.customFooter3)}" placeholder="e.g. Visit us again"></label>
+          </div>
           <button class="primary">Save Printer Setup</button>
         </form>
       </article>
       <article class="card panel"><div class="panel-head"><div><h3>Data Backup</h3><p>Download all data or each module separately.</p></div><button class="primary" onclick="backup('all')">↓ Full Backup</button></div><div class="cards">${scopes.map(s=>`<button class="outline" onclick="backup('${s[0]}')">↓ ${s[1]}</button>`).join('')}</div>
       <hr>
-      <div class="grid"><label>Restore Type<select id="restoreScope"><option value="all">Full Backup</option>${scopes.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select></label><label>Choose JSON Backup<input type="file" accept=".json,application/json" onchange="restoreFile(event)"></label></div>
+      <div class="grid"><label>Restore Type<select id="restoreScope"><option value="all">Full Backup</option>${scopes.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select></label><label>Choose JSON Backup<input type="file" accept=".json,application/json,text/plain,*/*" onchange="restoreFile(event)"></label></div>
+      <p class="legend">If the file picker shows no files, try "All files" or "Downloads" in the picker's menu — some Android file pickers hide .json files by default.</p>
       <p class="legend">Restoring replaces the selected module only. Take a Full Backup first.</p>
       </article>
       <article class="card panel"><div class="panel-head"><div><h3>Activity History</h3><p>All create, edit, delete and restore actions.</p></div></div>${state.audit.length?`<div class="table-wrap"><table><tr><th>Time</th><th>Module</th><th>Action</th><th>Record</th></tr>${state.audit.slice(0,100).map(x=>`<tr><td>${x.time}</td><td>${x.module}</td><td>${x.action}</td><td>${x.record}</td></tr>`).join('')}</table></div>`:empty('No activity yet','New actions appear here.')}</article>
@@ -598,18 +660,37 @@
 
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   function download(name,content,type){
+    // Wrapped WebView APKs (e.g. Appilix) often accept a blob download silently without
+    // actually triggering Android's Download Manager or any notification — the user has
+    // no way to find the file. Route through the Android share sheet instead, which reliably
+    // shows a system UI and lets the user pick "Save to Downloads", Drive, WhatsApp, etc.
     try{
       const blob=new Blob([content],{type});
-      // Preferred path: works in real browsers and many WebView wrappers with download support
+      const file=(typeof File!=='undefined')?new File([blob],name,{type}):null;
+      if(navigator.share&&file&&navigator.canShare&&navigator.canShare({files:[file]})){
+        const result=navigator.share({files:[file],title:name});
+        if(result&&typeof result.then==='function'){
+          result.then(()=>toast('Choose where to save: '+name)).catch(()=>fallbackDownload(name,content,type));
+        }else{
+          toast('Choose where to save: '+name);
+        }
+        return;
+      }
+    }catch(e){/* fall through to fallback */}
+    fallbackDownload(name,content,type);
+  }
+  function fallbackDownload(name,content,type){
+    try{
+      const blob=new Blob([content],{type});
       if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
       const u=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=u;a.download=name;a.rel='noopener';a.style.display='none';
       document.body.appendChild(a);
       a.click();
       setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},1000);
-      toast('Download started: '+name);
+      toast('Download started: '+name+' — check your Downloads folder or notifications');
     }catch(err){
-      // Fallback for WebView wrappers that block blob downloads entirely:
+      // Last-resort fallback for WebView wrappers that block blob downloads entirely:
       // open the raw content in a new tab so the user can use the browser/app's
       // own "Save page" or share option.
       try{
@@ -633,7 +714,10 @@
     const r=new FileReader();
     r.onload=()=>{
       try{
-        const p=JSON.parse(r.result),d=p.data||p;
+        let text=String(r.result||'').trim();
+        if(text.charCodeAt(0)===0xFEFF)text=text.slice(1); // strip BOM some Android pickers add
+        if(!text)throw Error('The selected file is empty');
+        const p=JSON.parse(text),d=p.data||p;
         if(scope==='all'){
           if(!d.company||!Array.isArray(d.invoices)||!Array.isArray(d.products))throw Error('Invalid full backup file');
           const merged=structuredClone(fresh);
@@ -646,9 +730,9 @@
         }
         log('Backup','Restored',scope,'Restored from JSON file');
         persist();render();toast('Backup restored successfully');
-      }catch(err){toast(err.message||'Invalid backup file',true)}
+      }catch(err){toast(err.message||'Invalid backup file — make sure you selected a JSON file exported from this app',true)}
     };
-    r.onerror=()=>toast('Could not read file',true);
+    r.onerror=()=>toast('Could not read the selected file — try picking it again',true);
     r.readAsText(f);
     e.target.value='';
   }
@@ -657,6 +741,7 @@
 
   // ---------- Vendors ----------
   function openVendor(id){
+    _currentVendorEditId=id||'';
     const x=state.vendors.find(v=>v.id===id),next='OTSV'+String(state.vendors.length+1).padStart(3,'0');
     show(`<h2>${x?'Edit Vendor':'New Vendor'}</h2><p>Vendor ID is generated automatically. Extra fields below are optional.</p>
     <form class="form" onsubmit="saveVendor(event,'${id||''}')">
@@ -667,14 +752,52 @@
       <label>Address (optional)<textarea name="address" placeholder="Vendor address">${esc(x?.address)}</textarea></label>
       <label>WhatsApp Number (optional)<input name="whatsapp" type="tel" value="${esc(x?.whatsapp)}" placeholder="07XXXXXXXX"></label>
       <div class="grid">
-        <label>Bank Name (optional)<input name="bankName" value="${esc(x?.bankName)}" placeholder="e.g. Commercial Bank"></label>
+        <label>Bank Name (optional)<input id="bankNameInput" name="bankName" list="bankList" value="${esc(x?.bankName)}" placeholder="Type to search banks..." autocomplete="off" onfocus="this.select()"></label>
         <label>Branch (optional)<input name="bankBranch" value="${esc(x?.bankBranch)}" placeholder="e.g. Buttala"></label>
         <label>Account Number (optional)<input name="accountNumber" value="${esc(x?.accountNumber)}"></label>
         <label>Account Holder Name (optional)<input name="accountHolder" value="${esc(x?.accountHolder)}"></label>
       </div>
+      <button type="button" class="outline" onclick="openBankPicker()" style="width:fit-content">🔍 Search Bank List</button>
+      <datalist id="bankList">${SL_BANKS.map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
       <label>Special Notes (optional)<textarea name="notes" placeholder="Any other notes about this vendor">${esc(x?.notes)}</textarea></label>
       <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save</button></div>
     </form>`);
+  }
+  let _bankPickerSavedValues=null;
+  function openBankPicker(){
+    const form=document.querySelector('#dialog form');
+    const savedValues={};
+    if(form)[...form.elements].forEach(el=>{if(el.name)savedValues[el.name]=el.value});
+    _bankPickerSavedValues=savedValues;
+    show(`<h2>Select Bank</h2><p>Search or tap a bank from the official Central Bank of Sri Lanka list.</p>
+    <input id="bankSearchInput" type="text" placeholder="Search banks..." oninput="filterBankList(this.value)" style="margin-bottom:12px">
+    <div id="bankPickerList" style="max-height:60vh;overflow-y:auto">${SL_BANKS.map(b=>`<button type="button" class="outline" style="width:100%;text-align:left;margin-bottom:6px" onclick="selectBank('${esc(b).replace(/'/g,"\\'")}')">${esc(b)}</button>`).join('')}</div>
+    <div class="modal-actions"><button type="button" class="outline" onclick="closeBankPicker()">Cancel</button></div>`);
+    setTimeout(()=>{const s=$('#bankSearchInput');if(s)s.focus()},50);
+  }
+  function filterBankList(query){
+    const q=query.trim().toLowerCase();
+    document.querySelectorAll('#bankPickerList button').forEach(btn=>{btn.style.display=btn.textContent.toLowerCase().includes(q)?'block':'none'});
+  }
+  function selectBank(bankName){
+    if(_bankPickerSavedValues)_bankPickerSavedValues.bankName=bankName;
+    reopenVendorFormWithValues();
+  }
+  function closeBankPicker(){
+    reopenVendorFormWithValues();
+  }
+  function reopenVendorFormWithValues(){
+    openVendor(_currentVendorEditId);
+    if(_bankPickerSavedValues){
+      const form=document.querySelector('#dialog form');
+      if(form){
+        Object.keys(_bankPickerSavedValues).forEach(k=>{
+          const el=form.elements.namedItem(k);
+          if(el)el.value=_bankPickerSavedValues[k];
+        });
+      }
+    }
+    _bankPickerSavedValues=null;
   }
   function saveVendor(e,id){
     e.preventDefault();
@@ -753,8 +876,8 @@
   function lineRows(type){
     return editor.map((x,i)=>{
       const itemField=type==='invoice'
-        ?`<select onchange="lineChange(${i},'description',this.value)">${state.products.length?'':'<option value="">No products yet</option>'}${state.products.map(p=>`<option ${p.name===x.description?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`
-        :`<input value="${esc(x.description)}" placeholder="Item" oninput="lineChange(${i},'description',this.value)">`;
+        ?`<select onchange="lineChange(${i},'description',this.value,'invoice')"><option value="" ${!x.description?'selected':''}>${state.products.length?'Select item...':'No products yet'}</option>${state.products.map(p=>`<option ${p.name===x.description?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`
+        :`<input value="${esc(x.description)}" placeholder="Item" oninput="lineChange(${i},'description',this.value,'purchase')">`;
       const mainRow=`<div class="line">${itemField}<input type="number" min="1" step="1" value="${x.qty||''}" placeholder="Qty" oninput="lineChange(${i},'qty',this.value)"><input type="number" min="0" step="0.01" value="${x.rate||''}" placeholder="Rate" oninput="lineChange(${i},'rate',this.value)"><button type="button" onclick="removeLine(${i})">×</button></div>`;
       if(type!=='invoice'||!x.description)return mainRow;
       const batches=availableBatches(x.description);
@@ -763,8 +886,17 @@
       return mainRow+batchRow;
     }).join('');
   }
-  function lineChange(i,k,v){editor[i][k]=(k==='description'||k==='batchNo')?v:num(v);if(k==='description'){editor[i].batchNo='';const b=availableBatches(v)[0];if(b)editor[i].rate=b.rate;refreshLines();return}updateTotal()}
-  function addLine(){editor.push({description:'',qty:'',rate:''});refreshLines()}
+  function lineChange(i,k,v,type){
+    editor[i][k]=(k==='description'||k==='batchNo')?v:num(v);
+    if(k==='description'&&type==='invoice'){
+      editor[i].batchNo='';
+      editor[i].rate=''; // leave rate blank for manual entry, don't auto-fill from batch cost
+      refreshLines();
+      return;
+    }
+    updateTotal();
+  }
+  function addLine(){editor.unshift({description:'',qty:'',rate:''});refreshLines()}
   function removeLine(i){if(editor.length>1)editor.splice(i,1);refreshLines()}
   function updateTotal(){$('#orderTotal').textContent=money(editor.reduce((s,x)=>s+x.qty*x.rate,0))}
   function refreshLines(){const t=$('#editorType')?.value;if(!t)return;$('#lineRows').innerHTML=lineRows(t);updateTotal()}
@@ -775,8 +907,8 @@
     const initials=(name.match(/[A-Za-z]+/g)||[]).map(w=>w[0].toUpperCase()).join('').slice(0,3).padEnd(3,'X');
     const [d,m,y]=date.split('/');
     const prefix=initials+d+m+y.slice(-2);
-    const existing=state.batches.filter(b=>b.batchNo.startsWith(prefix));
-    const nextSeq=String(existing.length+1).padStart(3,'0');
+    const existingNumbers=new Set(state.batches.filter(b=>b.batchNo.startsWith(prefix)).map(b=>b.batchNo));
+    const nextSeq=String(existingNumbers.size+1).padStart(3,'0');
     return prefix+nextSeq;
   }
   function openPurchase(id){
@@ -825,11 +957,51 @@
     if(id){
       const x=state.purchases.find(x=>x.id===id);
       if(!x)return toast('Purchase order no longer exists',true);
-      const consumed=state.batches.some(b=>b.poId===id&&b.remainingQty<b.qty);
-      if(consumed)return toast('Cannot edit: some stock from this batch has already been sold or returned. Create a new Purchase Order instead.',true);
-      applyPO(x.lines,-1,x.batchNo,id,x.date);
+      // Per-item check: only block if the NEW quantity for an item would go below
+      // how much of that item's batch has already been consumed (sold/returned elsewhere).
+      // Items that are untouched, or whose new qty is still >= consumed qty, are always fine —
+      // even if other items in the same PO have been consumed.
+      for(const line of valid){
+        const b=state.batches.find(bt=>bt.poId===id&&bt.productName===line.description);
+        if(!b)continue; // new item added to this PO — fine
+        const consumedQty=b.qty-b.remainingQty;
+        if(line.qty<consumedQty){
+          return toast(`Cannot reduce "${line.description}" below ${consumedQty} — that much has already been sold or returned from this batch.`,true);
+        }
+      }
+      const newNames=new Set(valid.map(l=>l.description));
+      for(const oldLine of x.lines){
+        if(newNames.has(oldLine.description))continue;
+        const b=state.batches.find(bt=>bt.poId===id&&bt.productName===oldLine.description);
+        if(b&&b.remainingQty<b.qty){
+          return toast(`Cannot remove "${oldLine.description}" — some of its stock from this batch has already been sold or returned.`,true);
+        }
+      }
+      // Update batches in place so consumption history (remainingQty) is preserved.
+      const oldNames=new Set(x.lines.map(l=>l.description));
+      valid.forEach(line=>{
+        const b=state.batches.find(bt=>bt.poId===id&&bt.productName===line.description);
+        if(b){
+          const consumedQty=b.qty-b.remainingQty;
+          b.qty=line.qty;
+          b.remainingQty=line.qty-consumedQty;
+          b.rate=line.rate;
+          b.batchNo=batchNo;
+        }else{
+          state.batches.push({batchNo,productName:line.description,poId:id,qty:line.qty,remainingQty:line.qty,rate:line.rate,date:x.date});
+        }
+        let p=state.products.find(pr=>pr.name===line.description);
+        if(!p){p={id:'PRD-'+String(state.products.length+1).padStart(3,'0'),name:line.description,stock:0,cost:line.rate,price:line.rate,reorder:0};state.products.push(p)}
+        p.cost=line.rate;
+      });
+      // Remove batch records for items dropped from the PO (already confirmed unconsumed above)
+      oldNames.forEach(name=>{
+        if(!newNames.has(name)){
+          state.batches=state.batches.filter(bt=>!(bt.poId===id&&bt.productName===name));
+        }
+      });
+      state.products.forEach(p=>{p.stock=totalAvailableQty(p.name)});
       x.vendor=vendor;x.lines=valid;x.total=valid.reduce((s,z)=>s+z.qty*z.rate,0);x.batchNo=batchNo;
-      applyPO(valid,1,batchNo,id,x.date);
       log('Purchasing','Updated',id);
     }else{
       const newId='PO-'+String(state.purchases.length+1).padStart(4,'0');
@@ -847,14 +1019,33 @@
     editor=x?structuredClone(x.lines):[{description:'',qty:'',rate:''}];
     const sid=x?x.shopId:'OTSR'+String(state.retailers.length+1).padStart(4,'0');
     if(!x&&!state.products.length){toast('Add products in Inventory first',true);return;}
+    const existingCustomer=x?state.retailers.find(r=>r.id===x.shopId):null;
+    const isManualDefault=!x||!existingCustomer;
     show(`<h2>${x?'Edit '+x.id:'New Invoice'}</h2><p>Saving reduces stock and updates achievements.</p>
     <form class="form" onsubmit="saveInvoice(event,'${id||''}')">
       <input id="editorType" type="hidden" value="invoice">
-      <div class="grid"><label>Customer<input name="customer" value="${esc(x?.customer)}" required></label><label>Shop ID<input class="auto" name="shopId" value="${sid}" readonly></label></div>
+      <div class="grid">
+        <label>Shop Name<input id="shopNameSearch" list="shopNameList" value="${isManualDefault?'':esc(existingCustomer.name)}" placeholder="Search or type shop name..." autocomplete="off" oninput="onShopNameInput(this.value)"></label>
+        <label>Shop ID<input class="auto" name="shopId" id="shopIdField" value="${sid}" readonly></label>
+      </div>
+      <datalist id="shopNameList">${state.retailers.map(r=>`<option value="${esc(r.name)}" data-shopid="${r.id}">`).join('')}</datalist>
+      <input type="hidden" id="customerChoiceField" name="customerChoice" value="${isManualDefault?'__manual__':existingCustomer.id}">
       <div class="line-editor"><div class="panel-head"><b>Items</b><button type="button" class="outline" onclick="addLine()">＋ Item</button></div><div id="lineRows">${lineRows('invoice')}</div><div class="total"><span>Total</span><b id="orderTotal">${money(editor.reduce((s,z)=>s+z.qty*z.rate,0))}</b></div></div>
       <label>Discount<input name="discount" type="number" min="0" step="0.01" value="${x?.discount||0}"></label>
       <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save Invoice</button></div>
     </form>`);
+  }
+  function onShopNameInput(val){
+    const match=state.retailers.find(r=>r.name===val);
+    const choiceField=$('#customerChoiceField');
+    const shopIdField=$('#shopIdField');
+    if(match){
+      choiceField.value=match.id;
+      shopIdField.value=match.id;
+    }else{
+      choiceField.value='__manual__';
+      // keep existing auto-generated Shop ID for a genuinely new shop name
+    }
   }
   function saveInvoice(e,id){
     e.preventDefault();
@@ -874,9 +1065,9 @@
       plans.push({line,plan});
     }
     // Apply new consumption
-    plans.forEach(({plan})=>{
+    plans.forEach(({line,plan})=>{
       plan.forEach(p=>{
-        const b=state.batches.find(x=>x.batchNo===p.batchNo);
+        const b=state.batches.find(x=>x.batchNo===p.batchNo&&x.productName===line.description);
         if(b)b.remainingQty-=p.qty;
       });
     });
@@ -886,15 +1077,30 @@
     if(discount<0)return toast('Discount cannot be negative',true);
     const total=Math.max(0,valid.reduce((s,x)=>s+x.qty*x.rate,0)-discount);
     const cogs=valid.reduce((s,x)=>s+(state.products.find(p=>p.name===x.description)?.cost||0)*x.qty,0);
-    const sid=f.get('shopId'),customer=(f.get('customer')||'').trim();
-    if(!customer)return toast('Customer name is required',true);
-    const retailer=state.retailers.find(x=>x.id===sid);
-    if(retailer)retailer.name=customer;else state.retailers.push({id:sid,name:customer});
+    const customerChoice=f.get('customerChoice');
+    let sid=f.get('shopId'),customer;
+    if(customerChoice==='__manual__'){
+      customer=($('#shopNameSearch').value||'').trim();
+      if(!customer)return toast('Shop name is required',true);
+      // If the typed name matches an existing shop exactly (case-insensitive), reuse that shop's ID
+      const match=state.retailers.find(r=>r.name.toLowerCase()===customer.toLowerCase());
+      if(match){
+        sid=match.id;
+        match.name=customer;
+      }else{
+        state.retailers.push({id:sid,name:customer});
+      }
+    }else{
+      const r=state.retailers.find(x=>x.id===customerChoice);
+      if(!r)return toast('Selected shop no longer exists',true);
+      sid=r.id;
+      customer=r.name;
+    }
     // Attach batch consumption plan to each line for later restoration/reporting
     const linesWithBatches=valid.map((line,i)=>({...line,batches:plans[i].plan}));
     let savedId;
     if(old){
-      Object.assign(old,{customer,lines:linesWithBatches,discount,total,cogs});
+      Object.assign(old,{customer,shopId:sid,lines:linesWithBatches,discount,total,cogs});
       log('Invoices','Updated',id);
       savedId=id;
     }else{
@@ -911,7 +1117,7 @@
   function restoreInvoiceBatches(inv){
     inv.lines.forEach(line=>{
       (line.batches||[]).forEach(p=>{
-        const b=state.batches.find(x=>x.batchNo===p.batchNo);
+        const b=state.batches.find(x=>x.batchNo===p.batchNo&&x.productName===line.description);
         if(b)b.remainingQty+=p.qty;
       });
     });
@@ -920,7 +1126,7 @@
   function consumeInvoiceBatches(inv){
     inv.lines.forEach(line=>{
       (line.batches||[]).forEach(p=>{
-        const b=state.batches.find(x=>x.batchNo===p.batchNo);
+        const b=state.batches.find(x=>x.batchNo===p.batchNo&&x.productName===line.description);
         if(b)b.remainingQty-=p.qty;
       });
     });
@@ -972,7 +1178,7 @@
         let remaining=qty;
         (line.batches||[]).forEach(bc=>{
           if(remaining<=0)return;
-          const b=state.batches.find(x=>x.batchNo===bc.batchNo);
+          const b=state.batches.find(x=>x.batchNo===bc.batchNo&&x.productName===line.description);
           if(b){const give=Math.min(remaining,bc.qty);b.remainingQty+=give;remaining-=give}
         });
         p.stock=totalAvailableQty(p.name);
@@ -988,10 +1194,11 @@
   // ---------- Expenses ----------
   function openExpense(id){
     const x=state.expenses.find(e=>e.id===id);
+    const isManualDefault=!x; // new expense defaults to "Manual Add" being selected; editing selects the real category
     show(`<h2>${x?'Edit Expense':'New Expense'}</h2><p>Recorded expenses reduce Net Profit in the P&amp;L report.</p>
     <form class="form" onsubmit="saveExpense(event,'${id||''}')">
       <label>Category<select id="expenseCategorySelect" name="category" onchange="toggleManualCategory(this.value)"><option value="__manual__">＋ Manual Add New Category</option>${EXPENSE_CATEGORIES().map(c=>`<option ${x?.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
-      <label id="manualCategoryWrap" style="display:none">New Category Name<input id="manualCategoryInput" type="text" placeholder="Type new category name"><span id="categoryErr" class="err"></span></label>
+      <label id="manualCategoryWrap" style="display:${isManualDefault?'grid':'none'}">New Category Name<input id="manualCategoryInput" type="text" placeholder="Type new category name"><span id="categoryErr" class="err"></span></label>
       <label>Amount<input name="amount" type="number" min="0" step="0.01" value="${x?.amount??''}" required></label>
       <label>Description (optional)<input name="note" value="${esc(x?.note)}" placeholder="e.g. August electricity bill"></label>
       <label>Date<input name="date" type="date" value="${x?toIsoDate(x.date):new Date().toISOString().slice(0,10)}"></label>
@@ -1069,7 +1276,17 @@
   function savePrinterSettings(e){
     e.preventDefault();
     const f=new FormData(e.target);
-    state.company={...state.company,printerWidth:f.get('printerWidth'),printerName:(f.get('printerName')||'').trim(),printerNote:(f.get('printerNote')||'').trim()};
+    state.company={
+      ...state.company,
+      printerWidth:f.get('printerWidth'),
+      printerName:(f.get('printerName')||'').trim(),
+      printerNote:(f.get('printerNote')||'').trim(),
+      printHeaderFooter:f.get('printHeaderFooter')==='on',
+      customHeader:(f.get('customHeader')||'').trim(),
+      customFooter:(f.get('customFooter')||'').trim(),
+      customFooter2:(f.get('customFooter2')||'').trim(),
+      customFooter3:(f.get('customFooter3')||'').trim()
+    };
     log('Settings','Updated','Printer setup');
     persist();render();toast('Printer setup saved');
   }
@@ -1094,47 +1311,284 @@
     log('Settings','Updated','Company logo removed');
     persist();render();toast('Logo removed');
   }
+  function uploadQrCode(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    if(!file.type.startsWith('image/'))return toast('Please choose an image file',true);
+    if(file.size>1024*1024*1.5)return toast('Image too large — please use a file under 1.5MB',true);
+    const r=new FileReader();
+    r.onload=()=>{
+      state.company.qrCode=r.result;
+      log('Settings','Updated','Company QR code');
+      persist();render();toast('QR code uploaded');
+    };
+    r.onerror=()=>toast('Could not read image',true);
+    r.readAsDataURL(file);
+    e.target.value='';
+  }
+  function removeQrCode(){
+    if(!confirm('Remove payment QR code?'))return;
+    state.company.qrCode='';
+    log('Settings','Updated','Company QR code removed');
+    persist();render();toast('QR code removed');
+  }
 
   // ---------- Print ----------
   function printInvoice(id){
     const x=state.invoices.find(i=>i.id===id);
     if(!x)return toast('Invoice not found',true);
     const c=state.company;
-    const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
+    if(c.logo&&c.qrCode){
+      buildLogoQrComposite(c.logo,c.qrCode,(composite)=>doPrintInvoice(x,composite));
+    }else if(c.logo||c.qrCode){
+      resizeSingleImage(c.logo||c.qrCode,(resized)=>doPrintInvoice(x,resized),!c.logo&&!!c.qrCode);
+    }else{
+      doPrintInvoice(x,null);
+    }
+  }
+  // 58mm thermal printers (ESC/POS standard) have an exact 384px active print width:
+  // 48mm printable area x 8 pixels/mm at 203 DPI = 384px. Using this exact width means
+  // no extra scaling is needed by the printer app, avoiding any distortion or misalignment.
+  const PRINT_WIDTH_PX=384;
+  function resizeSingleImage(src,callback,isQr){
+    try{
+      // QR alone gets a generous square sized well above the ~160px (2cm) minimum reliable scan size,
+      // while staying within the printable width.
+      const targetSize=isQr?Math.min(220,PRINT_WIDTH_PX):Math.round(PRINT_WIDTH_PX*0.35);
+      const img=new Image();
+      img.onload=()=>{
+        let w,h;
+        if(isQr){w=targetSize;h=targetSize}
+        else{h=targetSize;w=img.width*(targetSize/img.height)}
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.round(w);canvas.height=Math.round(h);
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0,w,h);
+        callback(canvas.toDataURL('image/jpeg',0.8));
+      };
+      img.onerror=()=>callback(src);
+      img.src=src;
+    }catch(e){
+      callback(src);
+    }
+  }
+  // Combine logo (left) and QR code (right) into one balanced side-by-side image,
+  // sized to exactly fill the printer's native 384px width — no scaling needed on the printer side.
+  // QR gets a generous square area comfortably above the ~160px (2cm) minimum reliable-scan size.
+  function buildLogoQrComposite(logoSrc,qrSrc,callback){
+    try{
+      const qrSize=180; // well above the 2cm/~160px minimum reliable QR scan size
+      const gap=16;
+      const logoW=PRINT_WIDTH_PX-qrSize-gap;
+      let loaded=0,logoImg=new Image(),qrImg=new Image();
+      const onBothLoaded=()=>{
+        const logoH=Math.min(qrSize,logoImg.height*(logoW/logoImg.width));
+        const canvas=document.createElement('canvas');
+        canvas.width=PRINT_WIDTH_PX;
+        canvas.height=qrSize;
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+        // vertically center the logo within the row height, QR fills the full row height
+        ctx.drawImage(logoImg,0,(qrSize-logoH)/2,logoW,logoH);
+        ctx.drawImage(qrImg,logoW+gap,0,qrSize,qrSize);
+        let dataUrl=canvas.toDataURL('image/jpeg',0.75);
+        if(dataUrl.length>90000){
+          // Intent extras have a strict ~1MB ceiling; back off quality (not QR pixel size) if needed
+          dataUrl=canvas.toDataURL('image/jpeg',0.55);
+        }
+        callback(dataUrl);
+      };
+      logoImg.onload=()=>{loaded++;if(loaded===2)onBothLoaded()};
+      qrImg.onload=()=>{loaded++;if(loaded===2)onBothLoaded()};
+      logoImg.onerror=()=>callback(logoSrc);
+      qrImg.onerror=()=>callback(logoSrc);
+      logoImg.src=logoSrc;
+      qrImg.src=qrSrc;
+    }catch(e){
+      callback(logoSrc);
+    }
+  }
+  function buildTopHeaderImage(c,callback){
+    try{
+      const printSettings=c.printHeaderFooter!==false;
+      if(!printSettings||!c.customHeader)return callback(null);
+      const canvas=document.createElement('canvas');
+      const ctx=canvas.getContext('2d');
+      const padding=8;
+      canvas.width=PRINT_WIDTH_PX;
+      canvas.height=40+padding*2;
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#000';ctx.textAlign='center';
+      ctx.font='bold 24px Arial';
+      ctx.fillText(c.customHeader,PRINT_WIDTH_PX/2,padding+28,PRINT_WIDTH_PX-16);
+      callback(canvas.toDataURL('image/jpeg',0.75));
+    }catch(e){
+      callback(null);
+    }
+  }
+  function buildCompanyDetailsImage(c,callback){
+    try{
+      const lines=[];
+      if(c.name)lines.push({text:c.name,font:'bold 40px "Times New Roman"'});
+      if(c.address)lines.push({text:c.address,font:'26px "Times New Roman"'});
+      const contactBits=[c.br?'BR: '+c.br:'',c.phone||''].filter(Boolean).join('   ');
+      if(contactBits)lines.push({text:contactBits,font:'26px "Times New Roman"'});
+      if(!lines.length)return callback(null);
+      const canvas=document.createElement('canvas');
+      const ctx=canvas.getContext('2d');
+      const lineHeight=40,padding=8;
+      canvas.width=PRINT_WIDTH_PX;
+      canvas.height=lines.length*lineHeight+padding*2;
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#000';ctx.textAlign='center';
+      lines.forEach((l,i)=>{
+        ctx.font=l.font;
+        ctx.fillText(l.text,PRINT_WIDTH_PX/2,padding+lineHeight*i+28,PRINT_WIDTH_PX-16);
+      });
+      callback(canvas.toDataURL('image/jpeg',0.75));
+    }catch(e){
+      callback(null);
+    }
+  }
+  function doPrintInvoice(x,imageDataUrl){
+    const c=state.company;
+    buildTopHeaderImage(c,(topHeaderImg)=>{
+      buildCompanyDetailsImage(c,(detailsImg)=>{
+        finishPrintInvoice(x,imageDataUrl,topHeaderImg,detailsImg);
+      });
+    });
+  }
+  // Formats a number as 000,000.00 for printed money values (thousands-separated)
+  function printMoney(n){
+    return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function buildInvoiceBodyImage(x,c,callback){
+    try{
+      const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
+      const fontNormal='20px Arial';
+      const fontBold='bold 20px Arial';
+      const padding=10,rowH=28,dashH=20;
+      const badgeSize=20,badgeGap=8; // custom-drawn number badge (not an emoji) for guaranteed rendering on every device
+      const rows=[]; // {type:'row'|'line'|'dash'|'item', ...}
+      const addRow=(left,right,bold)=>rows.push({type:'row',left,right,bold:!!bold});
+      const addLine=(text,bold,center)=>rows.push({type:'line',text,bold:!!bold,center:!!center});
+      const addDash=()=>rows.push({type:'dash'});
+      const addItem=(num,text)=>rows.push({type:'item',num,text});
+      addDash();
+      addRow('Invoice',x.id);
+      addRow('Date',x.date);
+      addRow('Shop ID',x.shopId);
+      addRow('Shop Name',x.customer,true);
+      addDash();
+      x.lines.forEach((l,i)=>{
+        addItem(i+1,l.description);
+        addRow(`${l.qty} x ${printMoney(l.rate)}`,printMoney(l.qty*l.rate));
+      });
+      addDash();
+      addRow('Subtotal',printMoney(subtotal));
+      if(x.discount)addRow('Discount','-'+printMoney(x.discount));
+      addRow('TOTAL',printMoney(x.total),true);
+      const printSettings=c.printHeaderFooter!==false;
+      if(printSettings){
+        addDash();
+        addLine(c.customFooter||'Powered by IMS Apps',false,true);
+        if(c.customFooter2)addLine(c.customFooter2,false,true);
+        if(c.customFooter3)addLine(c.customFooter3,false,true);
+      }
+      const totalHeight=rows.reduce((s,r)=>s+(r.type==='dash'?dashH:rowH),0)+padding*2;
+      const canvas=document.createElement('canvas');
+      canvas.width=PRINT_WIDTH_PX;
+      canvas.height=totalHeight;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#000';
+      let y=padding;
+      rows.forEach(r=>{
+        if(r.type==='dash'){
+          ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+          ctx.beginPath();ctx.moveTo(padding,y+dashH/2);ctx.lineTo(PRINT_WIDTH_PX-padding,y+dashH/2);ctx.stroke();
+          ctx.setLineDash([]);
+          y+=dashH;
+        }else if(r.type==='row'){
+          ctx.font=r.bold?fontBold:fontNormal;
+          ctx.textAlign='left';
+          ctx.fillText(r.left,padding,y+20);
+          ctx.textAlign='right';
+          ctx.fillText(r.right,PRINT_WIDTH_PX-padding,y+20);
+          y+=rowH;
+        }else if(r.type==='item'){
+          // Draw a filled circle badge with the item number inside — custom-drawn shapes,
+          // not an emoji sequence, so it renders identically on every device/printer.
+          const cx=padding+badgeSize/2,cy=y+rowH/2-2;
+          ctx.fillStyle='#000';
+          ctx.beginPath();ctx.arc(cx,cy,badgeSize/2,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#fff';
+          ctx.font='bold 13px Arial';
+          ctx.textAlign='center';
+          ctx.fillText(String(r.num),cx,cy+4);
+          ctx.fillStyle='#000';
+          ctx.font=fontNormal;
+          ctx.textAlign='left';
+          let text=r.text;
+          const textX=padding+badgeSize+badgeGap;
+          const maxWidth=PRINT_WIDTH_PX-padding-textX;
+          while(ctx.measureText(text).width>maxWidth&&text.length>1){
+            text=text.slice(0,-2)+'…';
+          }
+          ctx.fillText(text,textX,y+20);
+          y+=rowH;
+        }else if(r.type==='line'){
+          ctx.font=r.bold?fontBold:fontNormal;
+          ctx.textAlign=r.center?'center':'left';
+          let text=r.text;
+          // truncate if it doesn't fit the printable width
+          const maxWidth=PRINT_WIDTH_PX-padding*2;
+          while(ctx.measureText(text).width>maxWidth&&text.length>1){
+            text=text.slice(0,-2)+'…';
+          }
+          ctx.fillText(text,r.center?PRINT_WIDTH_PX/2:padding,y+20);
+          y+=rowH;
+        }
+      });
+      callback(canvas.toDataURL('image/jpeg',0.75));
+    }catch(e){
+      callback(null);
+    }
+  }
+  function finishPrintInvoice(x,imageDataUrl,topHeaderImg,detailsImg){
+    const c=state.company;
     // Bluetooth Print (mate.bluetoothprint) tag-based format: <BAF>Content
     // B: bold (0/1) | A: align (0=left,1=center,2=right) | F: format (0=normal,1=doubleH,2=doubleH+W,3=doubleW)
     let str='';
     const line=(content,b,a,f)=>{str+=`<${b}${a}${f??0}>${content}\n`};
-    const row=(left,right)=>line(String(left).padEnd(16,' ')+String(right).padStart(16,' '),0,0);
-    line(c.name||'YOUR COMPANY',1,1,1);
-    if(c.address)line(c.address,0,1);
-    if(c.br)line('BR: '+c.br,0,1);
-    if(c.phone)line(c.phone,0,1);
-    line('--------------------------------',0,0);
-    row('Invoice',x.id);
-    row('Date',x.date);
-    row('Shop ID',x.shopId);
-    row('Customer',x.customer);
-    line('--------------------------------',0,0);
-    x.lines.forEach(l=>{
-      line(l.description,1,0);
-      row(`${l.qty} x ${l.rate.toFixed(2)}`,(l.qty*l.rate).toFixed(2));
-    });
-    line('--------------------------------',0,0);
-    row('Subtotal',subtotal.toFixed(2));
-    if(x.discount)row('Discount','-'+Number(x.discount).toFixed(2));
-    row('TOTAL',x.total.toFixed(2));
-    line('--------------------------------',0,0);
-    line('Powered by IMS Apps',0,1);
-    line('Custom Business Software Solutions',0,1);
-    line('Call: 0774 422 444',0,1);
-    line(' ',0,0);
-    line(' ',0,0);
-    try{
-      shareToBluetoothPrint(str);
-    }catch(err){
-      toast('Could not open printer app: '+(err.message||'unknown error'),true);
+    const img=(dataUrl)=>{if(dataUrl){const b64=dataUrl.split(',')[1]||dataUrl;str+=`<IMAGE>1#${b64}\n`}};
+    const printSettings=c.printHeaderFooter!==false;
+    // 1. Custom header text prints above everything, including the logo
+    if(topHeaderImg){
+      img(topHeaderImg);
+    }else if(printSettings&&c.customHeader){
+      line(c.customHeader,1,1); // safety-net fallback only if canvas rendering failed
     }
+    // 2. Logo / QR code
+    img(imageDataUrl);
+    // 3. Company name, address, BR, phone
+    if(detailsImg){
+      img(detailsImg);
+    }else{
+      if(c.name)line(c.name,1,1,1);
+      if(c.address)line(c.address,0,1);
+      if(c.br)line('BR: '+c.br,0,1);
+      if(c.phone)line(c.phone,0,1);
+    }
+    buildInvoiceBodyImage(x,c,(bodyImg)=>{
+      img(bodyImg);
+      try{
+        shareToBluetoothPrint(str);
+      }catch(err){
+        toast('Could not open printer app: '+(err.message||'unknown error'),true);
+      }
+    });
   }
   function shareToBluetoothPrint(str){
     if(navigator.share){
