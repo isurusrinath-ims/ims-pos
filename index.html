@@ -35,8 +35,12 @@
     .metric b{font-size:17px;display:block;word-break:break-word}
     .metric b.neg{color:var(--red)}
     .metric small{color:#849397}
-    .report-tile{min-height:150px;display:flex;flex-direction:column}
+    .report-tile{min-height:150px;display:flex;flex-direction:column;cursor:pointer;transition:box-shadow .15s ease}
+    .report-tile:active{box-shadow:0 2px 8px rgba(15,36,48,.1)}
     .report-tile .report-subject{min-height:32px}
+    .report-tile.expanded{grid-column:1 / -1;min-height:0}
+    .report-tile-detail table{font-size:11.5px}
+    .report-tile-detail th,.report-tile-detail td{padding:6px 8px;white-space:nowrap}
     .report-tile.t0 i{background:#d9f0ea;color:#0f8f83}
     .report-tile.t1 i{background:#dde9f7;color:#1e5fa8}
     .report-tile.t2 i{background:#f7e6cf;color:#b5751f}
@@ -166,7 +170,7 @@
   const STORAGE_KEY='ims_mobile_data_v2';
   const CHART_PALETTE=[['#a9c8f0','#1e6bd6'],['#b9e3d8','#0f8f6b'],['#f6cf9e','#c8781f'],['#e3b9dd','#9b2ea3'],['#f4b8b8','#d62e2e'],['#c7c2f0','#5c3ed6'],['#a9e3e0','#0f9490'],['#f0d9a9','#c89a1f']];
   const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',qrCode:'',printerWidth:'58',printerName:'',printerNote:'',printHeaderFooter:true,customHeader:'',customFooter:'',customFooter2:'',customFooter3:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],expenseCategories:[],targets:[],batches:[],audit:[]};
-  let state=loadState(),tab='dashboard',editor=[],_currentVendorEditId='';
+  let state=loadState(),tab='dashboard',editor=[],_currentVendorEditId='',expandedReportTile='';
   const EXPENSE_CATEGORIES=()=>[...DEFAULT_EXPENSE_CATEGORIES,...(state.expenseCategories||[])];
 
   function loadState(){
@@ -408,10 +412,18 @@
     const isPaid=x.paymentStatus==='Paid';
     let label=x.paymentType;
     if(x.paymentType==='Cheque'&&x.chequeStatus)label+=' · '+x.chequeStatus;
+    const paid=paidAmount(x);
+    if(!isPaid&&paid>0)label+=' · Partial ('+money(paid)+' of '+money(x.total)+')';
     // Credit invoices are always flagged in red so they stand out at a glance, whether paid or pending.
     if(x.paymentType==='Credit'){if(isPaid)label+=' · Paid';return `<span class="status credit">${esc(label)}</span>`;}
     return `<span class="status ${isPaid?'good':'low'}">${esc(label)}</span>`;
   }
+  // ---------- Partial payments (Credit invoices, and Cheque invoices whose cheque was Returned) ----------
+  function canRecordPartialPayment(x){
+    return x.paymentType==='Credit'||(x.paymentType==='Cheque'&&x.chequeStatus==='Returned');
+  }
+  function paidAmount(x){return(x.payments||[]).reduce((s,p)=>s+p.amount,0)}
+  function balanceDue(x){return Math.max(0,Math.round((x.total-paidAmount(x))*100)/100)}
   function shopNetSales(shopId){
     const invs=state.invoices.filter(x=>x.shopId===shopId);
     const grossTotal=invs.reduce((s,x)=>s+x.total,0);
@@ -479,12 +491,16 @@
         <div class="pnl-row"><span>Cheque Status</span><span><b>${esc(x.chequeStatus||'Pending')}</b></span></div>
         ${x.chequeStatus==='Pass'&&x.chequePassedDate?`<div class="pnl-row"><span>Cheque Passed On</span><span><b>${esc(x.chequePassedDate)}</b></span></div>`:''}
         ${x.chequeStatus==='Returned'&&x.chequeReturnedDate?`<div class="pnl-row"><span>Cheque Returned On</span><span><b>${esc(x.chequeReturnedDate)}</b></span></div>`:''}`:''}
+        ${canRecordPartialPayment(x)&&x.payments&&x.payments.length?`<div class="pnl-row subtotal"><span>Total Paid</span><span>${money(paidAmount(x))}</span></div>
+        <div class="pnl-row grand ${balanceDue(x)>0?'':''}"><span>Balance Due</span><span>${money(balanceDue(x))}</span></div>
+        ${x.payments.map(p=>`<div class="pnl-row sub"><span>Paid on ${esc(p.date)}</span><span>${money(p.amount)}</span></div>`).join('')}`:''}
       </div>
       <div class="modal-actions" style="flex-wrap:wrap">
         ${x.paymentType==='Credit'&&!isPaid?`<button type="button" class="primary" onclick="closeModal();markInvoicePaid('${x.id}')">Mark as Paid</button>`:''}
         ${x.paymentType==='Credit'&&isPaid?`<button type="button" class="outline" onclick="closeModal();markInvoicePending('${x.id}')">Revert to Pending</button>`:''}
         ${x.paymentType==='Cheque'&&x.chequeStatus!=='Pass'?`<button type="button" class="primary" onclick="closeModal();setChequeStatus('${x.id}','Pass')">Mark Cheque Passed</button>`:''}
         ${x.paymentType==='Cheque'&&x.chequeStatus!=='Returned'?`<button type="button" class="danger" onclick="closeModal();setChequeStatus('${x.id}','Returned')">Mark Cheque Returned</button>`:''}
+        ${canRecordPartialPayment(x)&&!isPaid?`<button type="button" class="outline" onclick="closeModal();openRecordPayment('${x.id}')">Record Payment</button>`:''}
       </div>
     </div>
     <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button><button class="primary" onclick="closeModal();printInvoice('${x.id}')">Print</button></div>`);
@@ -610,9 +626,29 @@
   }
 
   function xls(name,sets){
-    const xe=v=>String(v??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
-    const sheets=sets.map(s=>`<Worksheet ss:Name="${xe(s.n).slice(0,31)}"><Table>${s.r.map(r=>`<Row>${r.map(v=>`<Cell><Data ss:Type="${typeof v==='number'?'Number':'String'}">${xe(v)}</Data></Cell>`).join('')}</Row>`).join('')}</Table></Worksheet>`).join('');
-    download(name+'.xls','<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+sheets+'</Workbook>','application/vnd.ms-excel');
+    // Real CSV, not XML mislabeled as .xls. The previous approach wrote SpreadsheetML XML with a
+    // .xls extension; many Android spreadsheet apps check the actual file signature rather than
+    // trusting the extension, so they refused to open it even though the download itself worked.
+    // CSV is a genuine, universally-readable format — it opens correctly in Excel, Google Sheets,
+    // WPS, and virtually any spreadsheet or text app on any platform.
+    const esc=v=>{
+      const s=String(v??'');
+      // Quote any field containing a comma, quote, or newline, per standard CSV escaping.
+      return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+    };
+    const rowsToCsv=rows=>rows.map(r=>r.map(esc).join(',')).join('\r\n');
+    let csv;
+    if(sets.length===1){
+      csv=rowsToCsv(sets[0].r);
+    }else{
+      // Multiple report sets in one file: CSV has no concept of separate tabs, so each section
+      // gets its own title line and a blank line before the next, which spreadsheet apps and
+      // plain-text readers both handle cleanly.
+      csv=sets.map(s=>`"${s.n}"\r\n`+rowsToCsv(s.r)).join('\r\n\r\n');
+    }
+    // UTF-8 BOM so Excel (desktop and mobile) reliably detects UTF-8 instead of misreading
+    // currency symbols or non-ASCII characters as a different encoding.
+    download(name+'.csv','\ufeff'+csv,'text/csv');
   }
 
   function reportsPage(f){
@@ -651,8 +687,26 @@
         ${chequeInvoices.length?`<div class="table-wrap"><table><tr><th>Invoice</th><th>Shop Name</th><th>Cheque No.</th><th>Bank</th><th>Amount</th><th>Received</th><th>Status</th><th>Cleared / Returned</th><th>Days</th></tr>${chequeInvoices.map(x=>{const clearedDate=x.chequePassedDate||x.chequeReturnedDate;const days=clearedDate&&x.chequeReceivedDate?dayDiffGB(x.chequeReceivedDate,clearedDate):null;const statusClass=x.chequeStatus==='Pass'?'good':x.chequeStatus==='Returned'?'bad':'low';return `<tr><td><a href="javascript:void(0)" onclick="viewInvoice('${x.id}')" style="color:var(--teal);font-weight:800;text-decoration:underline">${x.id}</a></td><td>${esc(x.customer)}</td><td>${esc(x.chequeNumber||'—')}</td><td>${esc(x.chequeBank||'—')}</td><td><b>${money(x.total)}</b></td><td>${esc(x.chequeReceivedDate||'—')}</td><td><span class="status ${statusClass}">${esc(x.chequeStatus||'Pending')}</span></td><td>${esc(clearedDate||'—')}</td><td>${days!==null?days+' day'+(days===1?'':'s'):'—'}</td></tr>`}).join('')}</table></div>`:empty('No cheque payments yet','Cheque details appear here once an invoice is recorded with Payment Type: Cheque.')}
       </article>
 
-      <div class="cards">${sets.filter(s=>s.n!=='Profit and Loss'&&s.n!=='Cheque Tracking').map((s,i)=>`<article class="card metric report-tile t${i%8}"><i>${REPORT_ICONS[s.n]||'↗'}</i><span class="report-subject">${s.n}</span><b>${Math.max(0,s.r.length-1)} records</b><button class="outline" onclick="downloadSingleReport('${s.n}')" style="margin-top:8px;width:100%">Download Excel</button></article>`).join('')}</div>
+      <div class="cards">${sets.filter(s=>s.n!=='Profit and Loss'&&s.n!=='Cheque Tracking').map((s,i)=>{
+        const isOpen=expandedReportTile===s.n;
+        return `<article class="card metric report-tile t${i%8} ${isOpen?'expanded':''}" onclick="toggleReportTile(event,'${s.n.replace(/'/g,"\\'")}')">
+          <i>${REPORT_ICONS[s.n]||'↗'}</i><span class="report-subject">${s.n}</span><b>${Math.max(0,s.r.length-1)} records</b>
+          <button class="outline" onclick="event.stopPropagation();downloadSingleReport('${s.n}')" style="margin-top:8px;width:100%">Download Excel</button>
+          ${isOpen?`<div class="report-tile-detail" onclick="event.stopPropagation()">${reportDetailTable(s)}</div>`:''}
+        </article>`;
+      }).join('')}</div>
     </section>`;
+  }
+  function toggleReportTile(e,name){
+    // Accordion behaviour: clicking the already-open tile closes it; clicking another tile
+    // switches to that one, so only a single tile's detailed report is ever shown at once.
+    expandedReportTile=(expandedReportTile===name)?'':name;
+    render();
+  }
+  function reportDetailTable(s){
+    const[header,...rows]=s.r;
+    if(!rows.length)return `<p class="legend" style="margin-top:10px">No records yet.</p>`;
+    return `<div class="table-wrap" style="margin-top:10px;max-height:340px;overflow-y:auto"><table><tr>${header.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
   }
   function downloadAllReports(){xls('IMS_All_Reports',reportSets(financials()))}
   function downloadPnlOnly(){xls('IMS_Profit_and_Loss',[{n:'Profit and Loss',r:pnlRows(financials())}])}
@@ -775,11 +829,15 @@
 
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   function download(name,content,type){
-    // Try the File System Access API first (showSaveFilePicker) — supported on Chrome 132+ for
-    // Android/WebView. This triggers Android's real native download UI (progress notification,
-    // saved to Downloads), which is exactly the experience the old <a download> trick could never
-    // reliably produce in a wrapped WebView. Falls through to sharing/blob methods if unsupported.
-    if(typeof window.showSaveFilePicker==='function'){
+    // Wrapped WebView APKs (e.g. Appilix) sometimes expose showSaveFilePicker (it exists on the
+    // Chrome engine powering the WebView) but the native picker UI never actually displays inside
+    // the wrapper — the call just rejects immediately with AbortError. That looks identical to a
+    // real user pressing Cancel, so earlier logic treated it as "user cancelled" and gave up,
+    // which meant Reports/Backup downloads silently failed every time inside the packaged app.
+    // Detect that wrapped-app context up front and skip straight to the share/blob methods that
+    // are known to work in WebViews, instead of trusting the picker.
+    const isWrappedWebView=/wv\)|; wv;|Version\/[\d.]+.*Chrome.*Mobile(?!.*Safari)/i.test(navigator.userAgent)||!!window.AndroidBridge||!!window.Appilix;
+    if(typeof window.showSaveFilePicker==='function'&&!isWrappedWebView){
       (async()=>{
         try{
           const handle=await window.showSaveFilePicker({suggestedName:name});
@@ -788,8 +846,9 @@
           await writable.close();
           toast('Saved: '+name);
         }catch(err){
-          // User cancelled the picker, or the API failed silently — fall back to sharing
-          if(err&&err.name==='AbortError'){toast('Save cancelled',true);return}
+          // Only a genuine, deliberate user cancellation (thrown quickly, no partial write) skips
+          // saving entirely; anything else — including AbortError from a picker that never
+          // rendered — falls back to the share/blob chain so the user still gets their file.
           downloadViaShareOrBlob(name,content,type);
         }
       })();
@@ -822,18 +881,13 @@
     downloadFallbackByType(name,content,type);
   }
   function downloadFallbackByType(name,content,type){
-    const isJson=type==='application/json';
-    if(isJson&&navigator.share){
-      try{
-        const result=navigator.share({title:name,text:content});
-        if(result&&typeof result.then==='function'){
-          result.then(()=>toast('Choose an app to save "'+name+'" (e.g. Drive, Notes, Files)')).catch(()=>fallbackDownload(name,content,type));
-        }else{
-          toast('Choose an app to save "'+name+'" (e.g. Drive, Notes, Files)');
-        }
-        return;
-      }catch(e){/* fall through */}
-    }
+    // Previously JSON backups fell back to navigator.share({text:content}) here, which shares raw
+    // text with no filename or .json extension attached — many share targets (Notes, Drive "create
+    // doc", clipboard-style targets) then save it as an untitled text snippet instead of a real,
+    // reopenable .json file, which is why restoring a "successfully downloaded" backup could fail:
+    // the file the user later picked wasn't actually valid JSON, or wasn't findable at all. Every
+    // file type now falls back to the same reliable blob-download path, which preserves the
+    // filename and extension.
     fallbackDownload(name,content,type);
   }
   function fallbackDownload(name,content,type){
@@ -1420,6 +1474,15 @@
     const x=state.invoices.find(i=>i.id===id);
     if(!x)return toast('Invoice not found',true);
     if(!confirm(`Mark ${id} as Paid? This confirms the ${x.paymentType.toLowerCase()} payment has been received.`))return;
+    // If partial payments were already recorded, log the remaining balance as one final payment
+    // so the payment history stays complete and adds up to the invoice total.
+    if(canRecordPartialPayment(x)){
+      const balance=balanceDue(x);
+      if(balance>0){
+        if(!x.payments)x.payments=[];
+        x.payments.push({date:new Date().toLocaleDateString('en-GB'),amount:balance});
+      }
+    }
     x.paymentStatus='Paid';
     log('Invoices','Payment Received',id);
     persist();render();toast('Payment marked as received');
@@ -1431,6 +1494,47 @@
     x.paymentStatus='Pending';
     log('Invoices','Payment Reverted to Pending',id);
     persist();render();toast('Payment marked as pending');
+  }
+  // ---------- Partial payments ----------
+  function openRecordPayment(id){
+    const x=state.invoices.find(i=>i.id===id);
+    if(!x)return toast('Invoice not found',true);
+    if(!canRecordPartialPayment(x))return toast('Partial payments are only available for Credit invoices and Cheques marked Returned',true);
+    const balance=balanceDue(x);
+    show(`<h2>Record Payment — ${x.id}</h2><p>${esc(x.customer)} · Total ${money(x.total)} · Balance due <b>${money(balance)}</b></p>
+    <form class="form" onsubmit="saveRecordPayment(event,'${x.id}')">
+      <label>Amount Received<input name="amount" type="number" min="0.01" max="${balance}" step="0.01" value="${balance}" required autofocus></label>
+      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0,10)}" required></label>
+      ${x.payments&&x.payments.length?`<div class="pnl-section"><h4>Payment History</h4>${x.payments.map((p,i)=>`<div class="pnl-row"><span>${esc(p.date)}</span><span><b>${money(p.amount)}</b> <button type="button" class="del" style="padding:2px 8px;margin-left:6px" onclick="deletePayment('${x.id}',${i})">Undo</button></span></div>`).join('')}</div>`:''}
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Cancel</button><button class="primary">Save Payment</button></div>
+    </form>`);
+  }
+  function saveRecordPayment(e,id){
+    e.preventDefault();
+    const x=state.invoices.find(i=>i.id===id);
+    if(!x)return toast('Invoice not found',true);
+    const f=new FormData(e.target);
+    const amount=num(f.get('amount'));
+    const date=f.get('date');
+    if(amount<=0)return toast('Enter a payment amount greater than zero',true);
+    const balance=balanceDue(x);
+    if(amount>balance+0.01)return toast('Amount exceeds the balance due ('+money(balance)+')',true);
+    if(!x.payments)x.payments=[];
+    x.payments.push({date:date?fromIsoDate(date):new Date().toLocaleDateString('en-GB'),amount});
+    // Fully settled once the running balance reaches zero — otherwise it stays Pending, as a
+    // partial payment does not mean the invoice is paid off yet.
+    if(balanceDue(x)<=0)x.paymentStatus='Paid';
+    log('Invoices','Partial Payment Recorded',id+' — '+money(amount));
+    persist();closeModal();render();toast(balanceDue(x)<=0?'Payment recorded — invoice fully paid':'Payment recorded — balance '+money(balanceDue(x)));
+  }
+  function deletePayment(id,index){
+    const x=state.invoices.find(i=>i.id===id);
+    if(!x||!x.payments||!x.payments[index])return;
+    if(!confirm('Undo this payment entry?'))return;
+    x.payments.splice(index,1);
+    if(balanceDue(x)>0&&x.paymentStatus==='Paid')x.paymentStatus='Pending';
+    log('Invoices','Payment Entry Undone',id);
+    persist();openRecordPayment(id);toast('Payment entry removed');
   }
   function setChequeStatus(id,status){
     const x=state.invoices.find(i=>i.id===id);
@@ -1805,6 +1909,14 @@
       addRow('Subtotal',printMoney(subtotal));
       if(x.discount)addRow('Discount','-'+printMoney(x.discount));
       addRow('TOTAL',printMoney(x.total),true);
+      if(canRecordPartialPayment(x)&&x.payments&&x.payments.length){
+        addDash();
+        addLine('PAYMENT HISTORY',true,false);
+        x.payments.forEach(p=>addRow(p.date,printMoney(p.amount)));
+        addDash();
+        addRow('Total Paid',printMoney(paidAmount(x)));
+        addRow('Balance Due',printMoney(balanceDue(x)),true);
+      }
       const printSettings=c.printHeaderFooter!==false;
       if(printSettings){
         addDash();
