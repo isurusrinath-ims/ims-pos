@@ -1205,14 +1205,15 @@
   }
   function fallbackDownload(name,content,type){
     // IMPORTANT: this app is packaged with the flutter_inappwebview plugin (confirmed by
-    // decompiling the actual installed APK). That plugin's own documentation and issue tracker
-    // establish that blob: URLs categorically cannot be handed to Android's native DownloadManager
-    // — "a URL cannot be downloaded from the flutter side, only the browser can do it" — because
-    // the blob's bytes live only in the WebView's process memory, which Flutter's native download
-    // handler cannot reach without an app-side fetch-and-relay implementation that this app does
-    // not have configured (it also declares zero storage permissions). A data: URI sidesteps this
-    // entirely by embedding the file's bytes directly in the URL string, so no RAM handoff to the
-    // native side is required — this doesn't depend on Appilix having implemented anything extra.
+    // decompiling the actual installed APK). That plugin's documentation, changelog, and issue
+    // tracker establish that blob:/data: URL downloads, navigator.share(), and window.print() all
+    // require native-side (Dart) handlers that this specific app build does not have configured
+    // (it also declares zero storage permissions) — every purely client-side JS approach routes
+    // through the same missing bridge. The one thing that reliably works regardless is Android's
+    // own long-press-on-link "Open in browser" menu, since that's OS-level link handling, not
+    // routed through the WebView's download listener at all. So: still attempt the automatic
+    // click (it may work on some Android/WebView versions), but always also present a real,
+    // long-pressable link as a guaranteed-reachable fallback.
     try{
       const blob=new Blob([content],{type});
       if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
@@ -1223,10 +1224,17 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(()=>{document.body.removeChild(a);},10000);
-      toast('Download attempted: '+name+' — if it did not appear in Downloads/notifications, try again or use Share instead');
+      showDownloadFallbackLink(name,dataUri);
     }catch(err){
       openContentInNewTab(name,content,err);
     }
+  }
+  function showDownloadFallbackLink(name,dataUri){
+    show(`<h2>Save "${esc(name)}"</h2>
+      <p>If the file didn't appear in your Downloads or notifications, press and hold the button below, then choose <b>"Open in browser"</b> or <b>"Open in Chrome"</b> from the menu that appears. Chrome can save this file when this app's built-in save doesn't.</p>
+      <p style="text-align:center;margin:20px 0"><a href="${dataUri}" download="${esc(name)}" style="display:inline-block;padding:14px 22px;background:var(--teal);color:#fff;font-weight:800;border-radius:10px;text-decoration:none;word-break:break-all">⬇ ${esc(name)}</a></p>
+      <p class="legend">Long-press (don't just tap) the button above for the "Open in browser" option to appear.</p>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
   }
   function openContentInNewTab(name,content,err){
     // Last-resort fallback for WebView wrappers that block both file-sharing and blob downloads:
