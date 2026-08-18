@@ -857,37 +857,14 @@
     downloadViaShareOrBlob(name,content,type);
   }
   function downloadViaShareOrBlob(name,content,type){
-    // Wrapped WebView APKs (e.g. Appilix) cannot reliably save blob: downloads through Android's
-    // real Download Manager. Try native file-sharing first (keeps the correct filename/extension for
-    // both .json and .xls). If that's unavailable, fall back per file type: JSON can be shared as
-    // plain text (still useful), while .xls needs to stay a real file, so it opens in a page the
-    // user can save manually as a last resort.
-    try{
-      const blob=new Blob([content],{type});
-      const file=(typeof File!=='undefined')?new File([blob],name,{type}):null;
-      if(navigator.share&&file){
-        const canShareFiles=!navigator.canShare||navigator.canShare({files:[file]});
-        if(canShareFiles){
-          const result=navigator.share({files:[file],title:name});
-          if(result&&typeof result.then==='function'){
-            result.then(()=>toast('Choose where to save: '+name)).catch(()=>downloadFallbackByType(name,content,type));
-          }else{
-            toast('Choose where to save: '+name);
-          }
-          return;
-        }
-      }
-    }catch(e){/* fall through */}
-    downloadFallbackByType(name,content,type);
-  }
-  function downloadFallbackByType(name,content,type){
-    // Previously JSON backups fell back to navigator.share({text:content}) here, which shares raw
-    // text with no filename or .json extension attached — many share targets (Notes, Drive "create
-    // doc", clipboard-style targets) then save it as an untitled text snippet instead of a real,
-    // reopenable .json file, which is why restoring a "successfully downloaded" backup could fail:
-    // the file the user later picked wasn't actually valid JSON, or wasn't findable at all. Every
-    // file type now falls back to the same reliable blob-download path, which preserves the
-    // filename and extension.
+    // IMPORTANT — this order was tested on a real Appilix-packaged device:
+    // navigator.share({files:[file]}) reports success in this WebView (canShare({files:...})
+    // returns true, and share() resolves) but the actual native share sheet that appears is a
+    // bare "Sharing text" box with nothing in it — the file is silently dropped. That looked like
+    // it worked (toast said "Choose where to save") while actually producing nothing usable
+    // (WhatsApp even refused it with "Can't send empty message"). The direct blob-download method
+    // below is the one that was confirmed to actually place a real file in the Downloads folder on
+    // the same device, so it now always runs first; native sharing is not attempted automatically.
     fallbackDownload(name,content,type);
   }
   function fallbackDownload(name,content,type){
@@ -1885,10 +1862,10 @@
   function buildInvoiceBodyImage(x,c,callback){
     try{
       const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
-      const fontNormal='20px Arial';
-      const fontBold='bold 20px Arial';
-      const padding=10,rowH=28,dashH=20;
-      const badgeSize=20,badgeGap=8; // custom-drawn number badge (not an emoji) for guaranteed rendering on every device
+      const fontNormal='22px Arial';
+      const fontBold='bold 22px Arial';
+      const padding=10,rowH=32,dashH=20;
+      const badgeSize=26,badgeGap=8; // custom-drawn number badge (not an emoji) for guaranteed rendering on every device
       const rows=[]; // {type:'row'|'line'|'dash'|'item', ...}
       const addRow=(left,right,bold)=>rows.push({type:'row',left,right,bold:!!bold});
       const addLine=(text,bold,center)=>rows.push({type:'line',text,bold:!!bold,center:!!center});
@@ -1941,9 +1918,9 @@
         }else if(r.type==='row'){
           ctx.font=r.bold?fontBold:fontNormal;
           ctx.textAlign='left';
-          ctx.fillText(r.left,padding,y+20);
+          ctx.fillText(r.left,padding,y+23);
           ctx.textAlign='right';
-          ctx.fillText(r.right,PRINT_WIDTH_PX-padding,y+20);
+          ctx.fillText(r.right,PRINT_WIDTH_PX-padding,y+23);
           y+=rowH;
         }else if(r.type==='item'){
           // Draw a filled circle badge with the item number inside — custom-drawn shapes,
@@ -1952,7 +1929,7 @@
           ctx.fillStyle='#000';
           ctx.beginPath();ctx.arc(cx,cy,badgeSize/2,0,Math.PI*2);ctx.fill();
           ctx.fillStyle='#fff';
-          ctx.font='bold 13px Arial';
+          ctx.font='bold 18px Arial';
           ctx.textAlign='center';
           ctx.fillText(String(r.num),cx,cy+4);
           ctx.fillStyle='#000';
@@ -1964,7 +1941,7 @@
           while(ctx.measureText(text).width>maxWidth&&text.length>1){
             text=text.slice(0,-2)+'…';
           }
-          ctx.fillText(text,textX,y+20);
+          ctx.fillText(text,textX,y+23);
           y+=rowH;
         }else if(r.type==='line'){
           ctx.font=r.bold?fontBold:fontNormal;
@@ -1975,7 +1952,7 @@
           while(ctx.measureText(text).width>maxWidth&&text.length>1){
             text=text.slice(0,-2)+'…';
           }
-          ctx.fillText(text,r.center?PRINT_WIDTH_PX/2:padding,y+20);
+          ctx.fillText(text,r.center?PRINT_WIDTH_PX/2:padding,y+23);
           y+=rowH;
         }
       });
