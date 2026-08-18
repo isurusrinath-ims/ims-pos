@@ -1190,23 +1190,39 @@
     // the same device, so it now always runs first; native sharing is not attempted automatically.
     fallbackDownload(name,content,type);
   }
+  function toBase64(bytesOrString){
+    // Accepts either a Uint8Array (xlsx) or a string (JSON/CSV) and returns base64.
+    if(typeof bytesOrString==='string'){
+      // TextEncoder first so multi-byte UTF-8 characters (currency symbols, etc.) survive.
+      const bytes=new TextEncoder().encode(bytesOrString);
+      let binary='';
+      for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+    let binary='';
+    for(let i=0;i<bytesOrString.length;i++)binary+=String.fromCharCode(bytesOrString[i]);
+    return btoa(binary);
+  }
   function fallbackDownload(name,content,type){
+    // IMPORTANT: this app is packaged with the flutter_inappwebview plugin (confirmed by
+    // decompiling the actual installed APK). That plugin's own documentation and issue tracker
+    // establish that blob: URLs categorically cannot be handed to Android's native DownloadManager
+    // — "a URL cannot be downloaded from the flutter side, only the browser can do it" — because
+    // the blob's bytes live only in the WebView's process memory, which Flutter's native download
+    // handler cannot reach without an app-side fetch-and-relay implementation that this app does
+    // not have configured (it also declares zero storage permissions). A data: URI sidesteps this
+    // entirely by embedding the file's bytes directly in the URL string, so no RAM handoff to the
+    // native side is required — this doesn't depend on Appilix having implemented anything extra.
     try{
       const blob=new Blob([content],{type});
       if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
-      const u=URL.createObjectURL(blob),a=document.createElement('a');
-      a.href=u;a.download=name;a.rel='noopener';a.style.display='none';
+      const base64=toBase64(content);
+      const dataUri='data:'+type+';base64,'+base64;
+      const a=document.createElement('a');
+      a.href=dataUri;a.download=name;a.rel='noopener';a.style.display='none';
       document.body.appendChild(a);
       a.click();
-      // Revoking the blob URL happens well after the click, since some WebViews process the
-      // actual file write asynchronously in the background (Android's Download Manager can pick
-      // it up after the click handler returns). Revoking too early can truncate or corrupt larger
-      // files — this matters more for bigger multi-sheet exports than small single-report ones,
-      // which is exactly the size-dependent failure pattern seen on a real device.
-      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},10000);
-      // Note: a.click() on a blob URL can silently do nothing in some restricted WebViews without
-      // throwing an error, so we can't be certain this actually saved anything. Settings → Data Backup
-      // has no separate confirmation step, so we tell the user plainly what to check.
+      setTimeout(()=>{document.body.removeChild(a);},10000);
       toast('Download attempted: '+name+' — if it did not appear in Downloads/notifications, try again or use Share instead');
     }catch(err){
       openContentInNewTab(name,content,err);
