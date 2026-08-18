@@ -1862,10 +1862,10 @@
   function buildInvoiceBodyImage(x,c,callback){
     try{
       const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
-      const fontNormal='22px Arial';
-      const fontBold='bold 22px Arial';
-      const padding=10,rowH=32,dashH=20;
-      const badgeSize=26,badgeGap=8; // custom-drawn number badge (not an emoji) for guaranteed rendering on every device
+      const fontNormal='24px Arial';
+      const fontBold='bold 24px Arial';
+      const padding=10,rowH=36,dashH=20;
+      const badgeSize=28,badgeGap=8; // custom-drawn number badge (not an emoji) for guaranteed rendering on every device
       const rows=[]; // {type:'row'|'line'|'dash'|'item', ...}
       const addRow=(left,right,bold)=>rows.push({type:'row',left,right,bold:!!bold});
       const addLine=(text,bold,center)=>rows.push({type:'line',text,bold:!!bold,center:!!center});
@@ -1918,9 +1918,9 @@
         }else if(r.type==='row'){
           ctx.font=r.bold?fontBold:fontNormal;
           ctx.textAlign='left';
-          ctx.fillText(r.left,padding,y+23);
+          ctx.fillText(r.left,padding,y+26);
           ctx.textAlign='right';
-          ctx.fillText(r.right,PRINT_WIDTH_PX-padding,y+23);
+          ctx.fillText(r.right,PRINT_WIDTH_PX-padding,y+26);
           y+=rowH;
         }else if(r.type==='item'){
           // Draw a filled circle badge with the item number inside — custom-drawn shapes,
@@ -1929,7 +1929,7 @@
           ctx.fillStyle='#000';
           ctx.beginPath();ctx.arc(cx,cy,badgeSize/2,0,Math.PI*2);ctx.fill();
           ctx.fillStyle='#fff';
-          ctx.font='bold 18px Arial';
+          ctx.font='bold 20px Arial';
           ctx.textAlign='center';
           ctx.fillText(String(r.num),cx,cy+4);
           ctx.fillStyle='#000';
@@ -1941,7 +1941,7 @@
           while(ctx.measureText(text).width>maxWidth&&text.length>1){
             text=text.slice(0,-2)+'…';
           }
-          ctx.fillText(text,textX,y+23);
+          ctx.fillText(text,textX,y+26);
           y+=rowH;
         }else if(r.type==='line'){
           ctx.font=r.bold?fontBold:fontNormal;
@@ -1952,7 +1952,7 @@
           while(ctx.measureText(text).width>maxWidth&&text.length>1){
             text=text.slice(0,-2)+'…';
           }
-          ctx.fillText(text,r.center?PRINT_WIDTH_PX/2:padding,y+23);
+          ctx.fillText(text,r.center?PRINT_WIDTH_PX/2:padding,y+26);
           y+=rowH;
         }
       });
