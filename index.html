@@ -625,30 +625,371 @@
     return rows;
   }
 
-  function xls(name,sets){
-    // Real CSV, not XML mislabeled as .xls. The previous approach wrote SpreadsheetML XML with a
-    // .xls extension; many Android spreadsheet apps check the actual file signature rather than
-    // trusting the extension, so they refused to open it even though the download itself worked.
-    // CSV is a genuine, universally-readable format — it opens correctly in Excel, Google Sheets,
-    // WPS, and virtually any spreadsheet or text app on any platform.
-    const esc=v=>{
-      const s=String(v??'');
-      // Quote any field containing a comma, quote, or newline, per standard CSV escaping.
-      return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
-    };
-    const rowsToCsv=rows=>rows.map(r=>r.map(esc).join(',')).join('\r\n');
-    let csv;
-    if(sets.length===1){
-      csv=rowsToCsv(sets[0].r);
-    }else{
-      // Multiple report sets in one file: CSV has no concept of separate tabs, so each section
-      // gets its own title line and a blank line before the next, which spreadsheet apps and
-      // plain-text readers both handle cleanly.
-      csv=sets.map(s=>`"${s.n}"\r\n`+rowsToCsv(s.r)).join('\r\n\r\n');
+  // ---------- Minimal built-in XLSX (real Excel format) writer, no external library ----------
+  // Minimal, dependency-free XLSX (OOXML) writer for browser environments.
+  // Produces a real, valid .xlsx file: a ZIP (store/no-compression, which the ZIP spec allows)
+  // containing the standard OOXML parts. Supports multiple sheets, a styled bold+colored header
+  // row, auto-fit column widths, and a currency number format for designated numeric columns.
+
+  // ---------- Minimal ZIP (store-only) ----------
+  function crc32(bytes) {
+    let table = crc32.table;
+    if (!table) {
+      table = crc32.table = new Int32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[n] = c;
+      }
     }
-    // UTF-8 BOM so Excel (desktop and mobile) reliably detects UTF-8 instead of misreading
-    // currency symbols or non-ASCII characters as a different encoding.
-    download(name+'.csv','\ufeff'+csv,'text/csv');
+    let crc = -1;
+    for (let i = 0; i < bytes.length; i++) crc = table[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ -1) >>> 0;
+  }
+
+  function strToBytes(str) {
+    return new TextEncoder().encode(str);
+  }
+
+  function u16(n) { return [n & 0xFF, (n >>> 8) & 0xFF]; }
+  function u32(n) { return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]; }
+
+  const DOS_TIME = 0, DOS_DATE = (1 << 5) | 1; // fixed Jan 1 1980 — no reader cares about export timestamp
+
+  async function deflateRaw(bytes){
+    // Compresses using the browser's native CompressionStream (raw DEFLATE, method 8 in ZIP terms).
+    // xlsx XML content is highly repetitive and typically shrinks 80-95% — this matters because a
+    // real device was confirmed to fail downloading larger uncompressed xlsx files (through
+    // Appilix's WebView download bridge) while small ones worked, consistent with a payload-size
+    // limit in that bridge. Shrinking the underlying bytes directly addresses that. Returns null if
+    // the API isn't available, so the caller can fall back to storing the entry uncompressed.
+    if(typeof CompressionStream!=='function')return null;
+    try{
+      const cs=new CompressionStream('deflate-raw');
+      const writer=cs.writable.getWriter();
+      writer.write(bytes);
+      writer.close();
+      const chunks=[];
+      const reader=cs.readable.getReader();
+      while(true){
+        const{done,value}=await reader.read();
+        if(done)break;
+        chunks.push(value);
+      }
+      let total=0;
+      chunks.forEach(c=>total+=c.length);
+      const out=new Uint8Array(total);
+      let pos=0;
+      chunks.forEach(c=>{out.set(c,pos);pos+=c.length;});
+      return out;
+    }catch(e){
+      return null;
+    }
+  }
+
+  async function makeZip(files) {
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+    for(const f of files){
+      const nameBytes = strToBytes(f.name);
+      const data = f.data;
+      const crc = crc32(data); // CRC is always computed on the uncompressed data, per ZIP spec
+      const size = data.length;
+      const compressed = await deflateRaw(data);
+      const useCompression = compressed !== null && compressed.length < data.length;
+      const storedData = useCompression ? compressed : data;
+      const compressedSize = storedData.length;
+      const method = useCompression ? 8 : 0; // 8 = DEFLATE, 0 = store
+      const localHeader = new Uint8Array([
+        0x50, 0x4B, 0x03, 0x04,
+        20, 0,
+        0, 0,
+        method, 0,
+        ...u16(DOS_TIME), ...u16(DOS_DATE),
+        ...u32(crc),
+        ...u32(compressedSize),
+        ...u32(size),
+        ...u16(nameBytes.length),
+        ...u16(0)
+      ]);
+      localParts.push(localHeader, nameBytes, storedData);
+      const localHeaderOffset = offset;
+      offset += localHeader.length + nameBytes.length + storedData.length;
+
+      const centralHeader = new Uint8Array([
+        0x50, 0x4B, 0x01, 0x02,
+        20, 0,
+        20, 0,
+        0, 0,
+        method, 0,
+        ...u16(DOS_TIME), ...u16(DOS_DATE),
+        ...u32(crc),
+        ...u32(compressedSize),
+        ...u32(size),
+        ...u16(nameBytes.length),
+        ...u16(0),
+        ...u16(0),
+        ...u16(0),
+        ...u16(0),
+        ...u32(0),
+        ...u32(localHeaderOffset)
+      ]);
+      centralParts.push(centralHeader, nameBytes);
+    }
+
+    const centralDirStart = offset;
+    let centralSize = 0;
+    centralParts.forEach(p => centralSize += p.length);
+
+    const eocd = new Uint8Array([
+      0x50, 0x4B, 0x05, 0x06,
+      0, 0, 0, 0,
+      ...u16(files.length),
+      ...u16(files.length),
+      ...u32(centralSize),
+      ...u32(centralDirStart),
+      ...u16(0)
+    ]);
+
+    const allParts = [...localParts, ...centralParts, eocd];
+    let totalLen = 0;
+    allParts.forEach(p => totalLen += p.length);
+    const out = new Uint8Array(totalLen);
+    let pos = 0;
+    allParts.forEach(p => { out.set(p, pos); pos += p.length; });
+    return out;
+  }
+
+  function xmlEscape(s) {
+    return String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[m]));
+  }
+
+  function colLetter(n) {
+    let s = '';
+    while (n > 0) {
+      const rem = (n - 1) % 26;
+      s = String.fromCharCode(65 + rem) + s;
+      n = Math.floor((n - 1) / 26);
+    }
+    return s;
+  }
+
+  async function buildXlsx(sheets) {
+    const files = [];
+
+    // Excel requires unique sheet names, and each is truncated to its 31-char limit — dedupe here
+    // so two long, similar report names can never collide into an invalid workbook.
+    const usedNames = new Set();
+    const uniqueSheetNames = sheets.map(s => {
+      let base = xmlEscape(s.name).slice(0, 31) || 'Sheet';
+      let name = base;
+      let n = 1;
+      while (usedNames.has(name)) {
+        const suffix = String(n++);
+        name = base.slice(0, 31 - suffix.length) + suffix;
+      }
+      usedNames.add(name);
+      return name;
+    });
+
+    files.push({ name: '[Content_Types].xml', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+      `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+      `<Default Extension="xml" ContentType="application/xml"/>` +
+      `<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>` +
+      `<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>` +
+      `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+      sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+      `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+      `<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>` +
+      `</Types>`
+    )});
+
+    const nowIso = new Date().toISOString();
+    files.push({ name: 'docProps/core.xml', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
+      `<dc:creator>IMS POS</dc:creator>` +
+      `<cp:lastModifiedBy>IMS POS</cp:lastModifiedBy>` +
+      `<dcterms:created xsi:type="dcterms:W3CDTF">${nowIso}</dcterms:created>` +
+      `<dcterms:modified xsi:type="dcterms:W3CDTF">${nowIso}</dcterms:modified>` +
+      `</cp:coreProperties>`
+    )});
+
+    files.push({ name: 'docProps/app.xml', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` +
+      `<Application>IMS POS</Application>` +
+      `<DocSecurity>0</DocSecurity>` +
+      `<ScaleCrop>false</ScaleCrop>` +
+      `<HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>${sheets.length}</vt:i4></vt:variant></vt:vector></HeadingPairs>` +
+      `<TitlesOfParts><vt:vector size="${sheets.length}" baseType="lpstr">` +
+      sheets.map((s,i) => `<vt:lpstr>${xmlEscape(s.name).slice(0,31)}</vt:lpstr>`).join('') +
+      `</vt:vector></TitlesOfParts>` +
+      `<LinksUpToDate>false</LinksUpToDate>` +
+      `<SharedDoc>false</SharedDoc>` +
+      `<HyperlinksChanged>false</HyperlinksChanged>` +
+      `<AppVersion>16.0300</AppVersion>` +
+      `</Properties>`
+    )});
+
+    files.push({ name: '_rels/.rels', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+      `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>` +
+      `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>` +
+      `</Relationships>`
+    )});
+
+    const sharedStrings = [];
+    const stringIndex = new Map();
+    function stringId(s) {
+      if (stringIndex.has(s)) return stringIndex.get(s);
+      const id = sharedStrings.length;
+      sharedStrings.push(s);
+      stringIndex.set(s, id);
+      return id;
+    }
+
+    const STYLE_DEFAULT = 0, STYLE_HEADER = 1, STYLE_MONEY = 2;
+
+    const sheetXmls = sheets.map((sheet, sheetIdx) => {
+      const moneyCols = sheet.moneyCols || new Set();
+      const colWidths = [];
+      const rowXmls = sheet.rows.map((row, rIdx) => {
+        const isHeader = rIdx === 0;
+        const cellMask=sheet.moneyCellMask&&sheet.moneyCellMask[rIdx];
+        const cells = row.map((val, cIdx) => {
+          const ref = colLetter(cIdx + 1) + (rIdx + 1);
+          const isMoneyCol = (moneyCols.has(cIdx)||(cellMask&&cellMask[cIdx])) && !isHeader;
+          const isNumber = typeof val === 'number';
+          const len = String(val ?? '').length;
+          colWidths[cIdx] = Math.max(colWidths[cIdx] || 0, len);
+          const styleAttr = isHeader ? STYLE_HEADER : (isMoneyCol ? STYLE_MONEY : STYLE_DEFAULT);
+          if (isNumber) {
+            return `<c r="${ref}" s="${styleAttr}"><v>${val}</v></c>`;
+          }
+          const sid = stringId(String(val ?? ''));
+          return `<c r="${ref}" s="${styleAttr}" t="s"><v>${sid}</v></c>`;
+        }).join('');
+        return `<row r="${rIdx + 1}">${cells}</row>`;
+      }).join('');
+
+      const cols = colWidths.map((w, i) => {
+        const width = Math.min(60, Math.max(8, w + 2));
+        return `<col min="${i + 1}" max="${i + 1}" width="${width}" customWidth="1"/>`;
+      }).join('');
+
+      // Real Excel always writes <dimension> (the sheet's used range) and <sheetViews>. Several
+      // strict readers — notably mobile Excel and Power Query — rely on <dimension> to know a
+      // sheet's extent; without it they can report an empty used-range or show only the first row,
+      // even though the actual cell data is present and valid. Compute it from the real data so
+      // it's never wrong.
+      const lastCol = colWidths.length || 1;
+      const lastRow = sheet.rows.length || 1;
+      const dimensionRef = `A1:${colLetter(lastCol)}${lastRow}`;
+
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+        `<dimension ref="${dimensionRef}"/>` +
+        `<sheetViews><sheetView${sheetIdx===0?' tabSelected="1"':''} workbookViewId="0" topLeftCell="A1"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>` +
+        `<cols>${cols}</cols>` +
+        `<sheetData>${rowXmls}</sheetData>` +
+        `</worksheet>`;
+    });
+
+    sheetXmls.forEach((xml, i) => {
+      files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: strToBytes(xml) });
+    });
+
+    files.push({ name: 'xl/sharedStrings.xml', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sharedStrings.length}" uniqueCount="${sharedStrings.length}">` +
+      sharedStrings.map(s => `<si><t xml:space="preserve">${xmlEscape(s)}</t></si>`).join('') +
+      `</sst>`
+    )});
+
+    files.push({ name: 'xl/styles.xml', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+      `<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts>` +
+      `<fonts count="2">` +
+      `<font><sz val="11"/><name val="Arial"/></font>` +
+      `<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>` +
+      `</fonts>` +
+      `<fills count="3">` +
+      `<fill><patternFill patternType="none"/></fill>` +
+      `<fill><patternFill patternType="gray125"/></fill>` +
+      `<fill><patternFill patternType="solid"><fgColor rgb="FF0F8F83"/><bgColor indexed="64"/></patternFill></fill>` +
+      `</fills>` +
+      `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
+      `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+      `<cellXfs count="3">` +
+      `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+      `<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>` +
+      `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
+      `</cellXfs>` +
+      `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
+      `</styleSheet>`
+    )});
+
+    files.push({ name: 'xl/workbook.xml', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+      `<bookViews><workbookView activeTab="0"/></bookViews>` +
+      `<sheets>` +
+      sheets.map((s, i) => `<sheet name="${uniqueSheetNames[i]}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') +
+      `</sheets>` +
+      `</workbook>`
+    )});
+
+    files.push({ name: 'xl/_rels/workbook.xml.rels', data: strToBytes(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+      `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+      `<Relationship Id="rId${sheets.length + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>` +
+      `</Relationships>`
+    )});
+
+    return await makeZip(files);
+  }
+
+
+  async function xls(name,sets){
+    // Real, styled .xlsx (not CSV, not XML-mislabeled-as-.xls). Money columns are auto-detected
+    // so every report gets currency formatting without hardcoding column indices per report —
+    // safer if a report's columns are ever reordered or a new report is added later.
+    const MONEY_WORDS=/\b(total|amount|rate|value|cost|refund|sales|discount|profit|pending|price|paid|balance|margin|selling)\b/i;
+    const COUNT_EXCEPTIONS=/^(total invoices|qty|quantity)/i;
+    function detectMoneyCols(headerRow){
+      const cols=new Set();
+      headerRow.forEach((h,i)=>{
+        const label=String(h??'');
+        if(COUNT_EXCEPTIONS.test(label.trim()))return;
+        if(MONEY_WORDS.test(label))cols.add(i);
+      });
+      return cols;
+    }
+    const xlsxSheets=sets.map(s=>{
+      if(s.n==='Profit and Loss'){
+        // Label/value layout, not a header+data table — money and percentage figures share the
+        // same column, so formatting must be decided per row (per cell), not for the whole column.
+        const moneyCellMask=s.r.map(row=>{
+          const label=String(row[0]??'');
+          const isMoney=typeof row[1]==='number'&&!/%/.test(label);
+          return[false,isMoney]; // column 0 (labels) never money; column 1 (values) conditionally
+        });
+        return{name:s.n,rows:s.r,moneyCols:new Set(),moneyCellMask};
+      }
+      const moneyCols=s.r.length?detectMoneyCols(s.r[0]):new Set();
+      return{name:s.n,rows:s.r,moneyCols};
+    });
+    const bytes=await buildXlsx(xlsxSheets);
+    download(name+'.xlsx',bytes,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   }
 
   function reportsPage(f){
@@ -829,32 +1170,14 @@
 
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   function download(name,content,type){
-    // Wrapped WebView APKs (e.g. Appilix) sometimes expose showSaveFilePicker (it exists on the
-    // Chrome engine powering the WebView) but the native picker UI never actually displays inside
-    // the wrapper — the call just rejects immediately with AbortError. That looks identical to a
-    // real user pressing Cancel, so earlier logic treated it as "user cancelled" and gave up,
-    // which meant Reports/Backup downloads silently failed every time inside the packaged app.
-    // Detect that wrapped-app context up front and skip straight to the share/blob methods that
-    // are known to work in WebViews, instead of trusting the picker.
-    const isWrappedWebView=/wv\)|; wv;|Version\/[\d.]+.*Chrome.*Mobile(?!.*Safari)/i.test(navigator.userAgent)||!!window.AndroidBridge||!!window.Appilix;
-    if(typeof window.showSaveFilePicker==='function'&&!isWrappedWebView){
-      (async()=>{
-        try{
-          const handle=await window.showSaveFilePicker({suggestedName:name});
-          const writable=await handle.createWritable();
-          await writable.write(new Blob([content],{type}));
-          await writable.close();
-          toast('Saved: '+name);
-        }catch(err){
-          // Only a genuine, deliberate user cancellation (thrown quickly, no partial write) skips
-          // saving entirely; anything else — including AbortError from a picker that never
-          // rendered — falls back to the share/blob chain so the user still gets their file.
-          downloadViaShareOrBlob(name,content,type);
-        }
-      })();
-      return;
-    }
-    downloadViaShareOrBlob(name,content,type);
+    // This app runs exclusively inside the Appilix WebView in production. Earlier this function
+    // tried window.showSaveFilePicker() first (gated by a user-agent sniff meant to detect wrapped
+    // WebViews), only falling back to the direct blob-anchor method if that failed or wasn't
+    // wrapped-webview-detected. That indirection added a second, less-tested code path and a
+    // user-agent guess that could misroute on some devices. Since fallbackDownload() below is the
+    // one method actually confirmed to place a working file in Downloads on a real device, always
+    // use it directly — no picker, no detection, no ambiguity about which path ran.
+    fallbackDownload(name,content,type);
   }
   function downloadViaShareOrBlob(name,content,type){
     // IMPORTANT — this order was tested on a real Appilix-packaged device:
@@ -875,7 +1198,12 @@
       a.href=u;a.download=name;a.rel='noopener';a.style.display='none';
       document.body.appendChild(a);
       a.click();
-      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},1000);
+      // Revoking the blob URL happens well after the click, since some WebViews process the
+      // actual file write asynchronously in the background (Android's Download Manager can pick
+      // it up after the click handler returns). Revoking too early can truncate or corrupt larger
+      // files — this matters more for bigger multi-sheet exports than small single-report ones,
+      // which is exactly the size-dependent failure pattern seen on a real device.
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},10000);
       // Note: a.click() on a blob URL can silently do nothing in some restricted WebViews without
       // throwing an error, so we can't be certain this actually saved anything. Settings → Data Backup
       // has no separate confirmation step, so we tell the user plainly what to check.
@@ -887,7 +1215,13 @@
   function openContentInNewTab(name,content,err){
     // Last-resort fallback for WebView wrappers that block both file-sharing and blob downloads:
     // open the raw content in a new tab so the user can select-all/copy and paste it into a
-    // file manager, notes app, or text editor to save manually.
+    // file manager, notes app, or text editor to save manually. This only makes sense for text
+    // content (CSV/JSON) — binary content (like .xlsx bytes) can't be usefully copy-pasted, so
+    // just tell the user plainly rather than dumping unreadable bytes into the page.
+    if(content instanceof Uint8Array||content instanceof ArrayBuffer){
+      toast('Could not save '+name+' — please check app permissions and try again.',true);
+      return;
+    }
     try{
       const w=window.open('','_blank');
       if(w){
@@ -1828,8 +2162,9 @@
       const lines=[];
       if(c.name)lines.push({text:c.name,font:'bold 40px "Times New Roman"'});
       if(c.address)lines.push({text:c.address,font:'26px "Times New Roman"'});
-      const contactBits=[c.br?'BR: '+c.br:'',c.phone||''].filter(Boolean).join('   ');
-      if(contactBits)lines.push({text:contactBits,font:'26px "Times New Roman"'});
+      // BR and phone are drawn as separate segments (not one combined string) so the phone number
+      // specifically can be bold while BR and the address stay at normal weight.
+      if(c.br||c.phone)lines.push({br:c.br?'BR: '+c.br:'',phone:c.phone||'',isContactLine:true,font:'26px "Times New Roman"',boldFont:'bold 26px "Times New Roman"'});
       if(!lines.length)return callback(null);
       const canvas=document.createElement('canvas');
       const ctx=canvas.getContext('2d');
@@ -1839,8 +2174,26 @@
       ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.fillStyle='#000';ctx.textAlign='center';
       lines.forEach((l,i)=>{
+        const baseline=padding+lineHeight*i+28;
+        if(l.isContactLine){
+          // Measure both segments (normal-weight BR + bold phone) to center the combined pair,
+          // then draw each with its own font so only the phone number ends up bold.
+          const gap=l.br&&l.phone?'   ':'';
+          ctx.font=l.font;
+          const brWidth=l.br?ctx.measureText(l.br).width:0;
+          const gapWidth=gap?ctx.measureText(gap).width:0;
+          ctx.font=l.boldFont;
+          const phoneWidth=l.phone?ctx.measureText(l.phone).width:0;
+          const totalWidth=brWidth+gapWidth+phoneWidth;
+          let x=PRINT_WIDTH_PX/2-totalWidth/2;
+          ctx.textAlign='left';
+          if(l.br){ctx.font=l.font;ctx.fillText(l.br,x,baseline);x+=brWidth+gapWidth;}
+          if(l.phone){ctx.font=l.boldFont;ctx.fillText(l.phone,x,baseline);}
+          ctx.textAlign='center';
+          return;
+        }
         ctx.font=l.font;
-        ctx.fillText(l.text,PRINT_WIDTH_PX/2,padding+lineHeight*i+28,PRINT_WIDTH_PX-16);
+        ctx.fillText(l.text,PRINT_WIDTH_PX/2,baseline,PRINT_WIDTH_PX-16);
       });
       callback(canvas.toDataURL('image/jpeg',0.75));
     }catch(e){
@@ -1862,15 +2215,33 @@
   function buildInvoiceBodyImage(x,c,callback){
     try{
       const subtotal=x.lines.reduce((s,l)=>s+l.qty*l.rate,0);
-      const fontNormal='24px Arial';
-      const fontBold='bold 24px Arial';
+      const fontNormal='23px Arial';
+      const fontBold='bold 23px Arial';
       const padding=10,rowH=36,dashH=20;
       const badgeSize=28,badgeGap=8; // custom-drawn number badge (not an emoji) for guaranteed rendering on every device
       const rows=[]; // {type:'row'|'line'|'dash'|'item', ...}
       const addRow=(left,right,bold)=>rows.push({type:'row',left,right,bold:!!bold});
-      const addLine=(text,bold,center)=>rows.push({type:'line',text,bold:!!bold,center:!!center});
+      const addLine=(text,bold,center,customFont)=>rows.push({type:'line',text,bold:!!bold,center:!!center,customFont});
       const addDash=()=>rows.push({type:'dash'});
       const addItem=(num,text)=>rows.push({type:'item',num,text});
+      // Measuring-only canvas so footer text can be word-wrapped onto multiple lines up front
+      // (before the real canvas height is known) instead of being cut off with "…" when a longer
+      // message doesn't fit the printer's fixed width at a larger/bold font size.
+      const measureCtx=document.createElement('canvas').getContext('2d');
+      const addWrappedLine=(text,bold,center,customFont)=>{
+        if(!text)return;
+        measureCtx.font=customFont||(bold?fontBold:fontNormal);
+        const maxWidth=PRINT_WIDTH_PX-padding*2;
+        if(measureCtx.measureText(text).width<=maxWidth){addLine(text,bold,center,customFont);return}
+        const words=text.split(' ');
+        let current='';
+        words.forEach(w=>{
+          const trial=current?current+' '+w:w;
+          if(measureCtx.measureText(trial).width<=maxWidth){current=trial}
+          else{if(current)addLine(current,bold,center,customFont);current=w;}
+        });
+        if(current)addLine(current,bold,center,customFont);
+      };
       addDash();
       addRow('Invoice',x.id);
       addRow('Date',x.date);
@@ -1897,9 +2268,9 @@
       const printSettings=c.printHeaderFooter!==false;
       if(printSettings){
         addDash();
-        addLine(c.customFooter||'Powered by IMS Apps',false,true);
-        if(c.customFooter2)addLine(c.customFooter2,false,true);
-        if(c.customFooter3)addLine(c.customFooter3,false,true);
+        addWrappedLine(c.customFooter||'Powered by IMS Apps',true,true,'bold 25px Arial');
+        if(c.customFooter2)addWrappedLine(c.customFooter2,false,true,'21px Arial');
+        if(c.customFooter3)addWrappedLine(c.customFooter3,true,true,'bold 21px Arial');
       }
       const totalHeight=rows.reduce((s,r)=>s+(r.type==='dash'?dashH:rowH),0)+padding*2;
       const canvas=document.createElement('canvas');
@@ -1944,7 +2315,7 @@
           ctx.fillText(text,textX,y+26);
           y+=rowH;
         }else if(r.type==='line'){
-          ctx.font=r.bold?fontBold:fontNormal;
+          ctx.font=r.customFont||(r.bold?fontBold:fontNormal);
           ctx.textAlign=r.center?'center':'left';
           let text=r.text;
           // truncate if it doesn't fit the printable width
@@ -1984,7 +2355,7 @@
       if(c.name)line(c.name,1,1,1);
       if(c.address)line(c.address,0,1);
       if(c.br)line('BR: '+c.br,0,1);
-      if(c.phone)line(c.phone,0,1);
+      if(c.phone)line(c.phone,1,1);
     }
     buildInvoiceBodyImage(x,c,(bodyImg)=>{
       img(bodyImg);
