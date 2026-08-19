@@ -171,6 +171,13 @@
   const CHART_PALETTE=[['#a9c8f0','#1e6bd6'],['#b9e3d8','#0f8f6b'],['#f6cf9e','#c8781f'],['#e3b9dd','#9b2ea3'],['#f4b8b8','#d62e2e'],['#c7c2f0','#5c3ed6'],['#a9e3e0','#0f9490'],['#f0d9a9','#c89a1f']];
   const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',qrCode:'',printerWidth:'58',printerName:'',printerNote:'',printHeaderFooter:true,customHeader:'',customFooter:'',customFooter2:'',customFooter3:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],expenseCategories:[],targets:[],batches:[],audit:[]};
   let state=loadState(),tab='dashboard',editor=[],_currentVendorEditId='',expandedReportTile='';
+  // Deep-link support: if the page loads with a URL like #invoices or #reports (e.g. from an
+  // Appilix Navigation Drawer item, a bookmark, or a shared link), open directly to that tab
+  // instead of always landing on the dashboard.
+  (function(){
+    const initialHash=(location.hash||'').replace('#','');
+    if(initialHash&&tabs.some(t=>t[0]===initialHash))tab=initialHash;
+  })();
   const EXPENSE_CATEGORIES=()=>[...DEFAULT_EXPENSE_CATEGORIES,...(state.expenseCategories||[])];
 
   function loadState(){
@@ -223,7 +230,7 @@
   }
   function toast(t,isErr){const e=$('#toast');e.textContent=(isErr?'⚠ ':'✓ ')+t;e.className='toast'+(isErr?' err-toast':'');e.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>e.hidden=true,2600)}
   function log(module,action,record,details){state.audit.unshift({time:new Date().toLocaleString('en-GB'),module,action,record:record||'',details:details||''});if(state.audit.length>500)state.audit.length=500}
-  function setTab(t){tab=t;renderNav();render()}
+  function setTab(t){tab=t;try{history.replaceState(null,'','#'+t)}catch(e){}renderNav();render()}
   function renderNav(){
     const html=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" onclick="setTab('${x[0]}')"><span>${x[1]}</span><small>${x[2]}</small></button>`).join('');
     $('#mobileNav').innerHTML=html;
