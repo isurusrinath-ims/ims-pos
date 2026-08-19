@@ -300,11 +300,11 @@
     const pendingByShop={};
     pendingInvoices.forEach(x=>{
       if(!pendingByShop[x.shopId])pendingByShop[x.shopId]={shopId:x.shopId,name:x.customer,total:0,invoices:[]};
-      pendingByShop[x.shopId].total+=x.total;
+      pendingByShop[x.shopId].total+=balanceDue(x);
       pendingByShop[x.shopId].invoices.push(x);
     });
     const pendingShops=Object.values(pendingByShop).sort((a,b)=>b.total-a.total);
-    const totalPending=pendingInvoices.reduce((s,x)=>s+x.total,0);
+    const totalPending=pendingInvoices.reduce((s,x)=>s+balanceDue(x),0);
     return `<section class="content">
       <div class="hero"><div><h2>Business Overview</h2><p>Smartphone-ready sales and inventory workspace.</p></div></div>
       <div class="cards">
@@ -583,7 +583,7 @@
   function reportSets(f){
     return [
       {n:'Invoices',r:[['Invoice','Date','Shop ID','Customer','Item','Batch(es)','Qty','Rate','Line Total','Discount','Invoice Total'],...state.invoices.flatMap(x=>x.lines.map((l,i)=>[x.id,x.date,x.shopId,x.customer,l.description,(l.batches||[]).map(b=>b.batchNo+':'+b.qty).join(', '),l.qty,l.rate,l.qty*l.rate,i===0?x.discount:'',i===0?x.total:'']))]},
-      {n:'Payment Details',r:[['Invoice','Date','Shop ID','Shop Name','Payment Type','Status','Cheque Status','Invoice Total','Pending Amount'],...state.invoices.map(x=>{const isPaid=x.paymentStatus==='Paid';return[x.id,x.date,x.shopId,x.customer,x.paymentType||'Not set',isPaid?'Paid':'Pending',x.paymentType==='Cheque'?(x.chequeStatus||'Pending'):'',x.total,isPaid?0:x.total]})]},
+      {n:'Payment Details',r:[['Invoice','Date','Shop ID','Shop Name','Payment Type','Status','Cheque Status','Invoice Total','Pending Amount'],...state.invoices.map(x=>{const isPaid=x.paymentStatus==='Paid';return[x.id,x.date,x.shopId,x.customer,x.paymentType||'Not set',isPaid?'Paid':'Pending',x.paymentType==='Cheque'?(x.chequeStatus||'Pending'):'',x.total,isPaid?0:balanceDue(x)]})]},
       {n:'Cheque Tracking',r:[['Invoice','Shop ID','Shop Name','Cheque Number','Bank','Amount','Received Date','Status','Passed Date','Returned Date','Days in Clearing'],...state.invoices.filter(x=>x.paymentType==='Cheque').map(x=>{const status=x.chequeStatus||'Pending';const clearedDate=x.chequePassedDate||x.chequeReturnedDate;const days=clearedDate&&x.chequeReceivedDate?dayDiffGB(x.chequeReceivedDate,clearedDate):'';return[x.id,x.shopId,x.customer,x.chequeNumber||'',x.chequeBank||'',x.total,x.chequeReceivedDate||'',status,x.chequePassedDate||'',x.chequeReturnedDate||'',days]})]},
       {n:'Customers',r:[['Shop ID','Name','Total Invoices','Net Sales'],...state.retailers.map(x=>{const {invs,netTotal}=shopNetSales(x.id);return[x.id,x.name,invs.length,netTotal]})]},
       {n:'Vendors',r:[['Vendor ID','Name','Phone','WhatsApp','Terms','Address','Bank Name','Branch','Account Number','Account Holder','Notes'],...state.vendors.map(x=>[x.id,x.name,x.phone,x.whatsapp,x.terms,x.address,x.bankName,x.bankBranch,x.accountNumber,x.accountHolder,x.notes])]},
@@ -1199,28 +1199,26 @@
   }
   function toBase64(bytesOrString){
     // Accepts either a Uint8Array (xlsx) or a string (JSON/CSV) and returns base64.
-    if(typeof bytesOrString==='string'){
-      // TextEncoder first so multi-byte UTF-8 characters (currency symbols, etc.) survive.
-      const bytes=new TextEncoder().encode(bytesOrString);
-      let binary='';
-      for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
-      return btoa(binary);
-    }
+    const bytes=typeof bytesOrString==='string'
+      ? new TextEncoder().encode(bytesOrString) // TextEncoder first so multi-byte UTF-8 (currency symbols, etc.) survives
+      : bytesOrString;
+    // Build the binary string in chunks rather than one character at a time — for a large backup
+    // (a real company logo alone can push the file well past 1MB), character-by-character
+    // concatenation is slow enough to noticeably stall the WebView during encoding. Chunking with
+    // fromCharCode.apply is both much faster and avoids "too many arguments" call-stack limits
+    // that spreading a very large array directly into fromCharCode could otherwise hit.
+    const CHUNK=0x8000;
     let binary='';
-    for(let i=0;i<bytesOrString.length;i++)binary+=String.fromCharCode(bytesOrString[i]);
+    for(let i=0;i<bytes.length;i+=CHUNK){
+      binary+=String.fromCharCode.apply(null,bytes.subarray?bytes.subarray(i,i+CHUNK):bytes.slice(i,i+CHUNK));
+    }
     return btoa(binary);
   }
   function fallbackDownload(name,content,type){
-    // IMPORTANT: this app is packaged with the flutter_inappwebview plugin (confirmed by
-    // decompiling the actual installed APK). That plugin's documentation, changelog, and issue
-    // tracker establish that blob:/data: URL downloads, navigator.share(), and window.print() all
-    // require native-side (Dart) handlers that this specific app build does not have configured
-    // (it also declares zero storage permissions) — every purely client-side JS approach routes
-    // through the same missing bridge. The one thing that reliably works regardless is Android's
-    // own long-press-on-link "Open in browser" menu, since that's OS-level link handling, not
-    // routed through the WebView's download listener at all. So: still attempt the automatic
-    // click (it may work on some Android/WebView versions), but always also present a real,
-    // long-pressable link as a guaranteed-reachable fallback.
+    // Appilix's native File Downloader module is enabled and handles the actual save (shows its
+    // own progress dialog and an "Open File" button once done) — this just needs to trigger that
+    // native download listener with a real, well-formed link. No extra in-page modal is needed
+    // since Appilix's own dialog already tells the user the download status.
     try{
       const blob=new Blob([content],{type});
       if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
@@ -1231,17 +1229,9 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(()=>{document.body.removeChild(a);},10000);
-      showDownloadFallbackLink(name,dataUri);
     }catch(err){
       openContentInNewTab(name,content,err);
     }
-  }
-  function showDownloadFallbackLink(name,dataUri){
-    show(`<h2>Save "${esc(name)}"</h2>
-      <p>If the file didn't appear in your Downloads or notifications, press and hold the button below, then choose <b>"Open in browser"</b> or <b>"Open in Chrome"</b> from the menu that appears. Chrome can save this file when this app's built-in save doesn't.</p>
-      <p style="text-align:center;margin:20px 0"><a href="${dataUri}" download="${esc(name)}" style="display:inline-block;padding:14px 22px;background:var(--teal);color:#fff;font-weight:800;border-radius:10px;text-decoration:none;word-break:break-all">⬇ ${esc(name)}</a></p>
-      <p class="legend">Long-press (don't just tap) the button above for the "Open in browser" option to appear.</p>
-      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
   }
   function openContentInNewTab(name,content,err){
     // Last-resort fallback for WebView wrappers that block both file-sharing and blob downloads:
@@ -1266,7 +1256,7 @@
       toast('Download failed: '+((err&&err.message)||'unknown error'),true);
     }
   }
-  function backup(scope){const payload=scope==='all'?{version:2,createdAt:new Date().toISOString(),...state}:{version:2,createdAt:new Date().toISOString(),scope,data:{[scope]:state[scope]}};download(scope==='all'?'IMS_Full_Backup.json':`IMS_${scope}_Backup.json`,JSON.stringify(payload,null,2),'application/json')}
+  function backup(scope){const payload=scope==='all'?{version:2,createdAt:new Date().toISOString(),...state}:{version:2,createdAt:new Date().toISOString(),scope,data:{[scope]:state[scope]}};download(scope==='all'?'IMS_Full_Backup.json':`IMS_${scope}_Backup.json`,JSON.stringify(payload),'application/json')}
   function restoreFile(e){
     const f=e.target.files[0],scope=$('#restoreScope').value;
     if(!f)return;
