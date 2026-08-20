@@ -169,7 +169,7 @@
   const REPORT_ICONS={'Invoices':'▤','Payment Details':'💳','Customers':'◇','Vendors':'⌂','Purchase Orders':'↓','Inventory':'□','Batches':'▥','Returns':'↺','Expenses':'＄','Target vs Achievement':'◎','Activity History':'☰'};
   const STORAGE_KEY='ims_mobile_data_v2';
   const CHART_PALETTE=[['#a9c8f0','#1e6bd6'],['#b9e3d8','#0f8f6b'],['#f6cf9e','#c8781f'],['#e3b9dd','#9b2ea3'],['#f4b8b8','#d62e2e'],['#c7c2f0','#5c3ed6'],['#a9e3e0','#0f9490'],['#f0d9a9','#c89a1f']];
-  const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',qrCode:'',printerWidth:'58',printerName:'',printerNote:'',printHeaderFooter:true,customHeader:'',customFooter:'',customFooter2:'',customFooter3:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],expenseCategories:[],targets:[],batches:[],audit:[]};
+  const fresh={company:{name:'',address:'',br:'',phone:'',logo:'',qrCode:'',printerWidth:'58',printerName:'',printerNote:'',printHeaderFooter:true,customHeader:'',customFooter:'',customFooter2:'',customFooter3:'',ghOwner:'',ghRepo:'',ghToken:''},retailers:[],vendors:[],products:[],purchases:[],invoices:[],returns:[],expenses:[],expenseCategories:[],targets:[],batches:[],audit:[]};
   let state=loadState(),tab='dashboard',editor=[],_currentVendorEditId='',expandedReportTile='';
   // Deep-link support: if the page loads with a URL like #invoices or #reports (e.g. from an
   // Appilix Navigation Drawer item, a bookmark, or a shared link), open directly to that tab
@@ -186,6 +186,7 @@
       const parsed=raw?JSON.parse(raw):null;
       const s=parsed&&typeof parsed==='object'?parsed:structuredClone(fresh);
       Object.keys(fresh).forEach(k=>{if(s[k]===undefined)s[k]=structuredClone(fresh[k])});
+      if(s.company)Object.keys(fresh.company).forEach(k=>{if(s.company[k]===undefined)s.company[k]=fresh.company[k]});
       migrateStockToBatches(s);
       return s;
     }catch(e){
@@ -1110,6 +1111,18 @@
           <button class="primary">Save Printer Setup</button>
         </form>
       </article>
+      <article class="card panel">
+        <div class="panel-head"><div><h3>Download Delivery (GitHub)</h3><p>If report/backup downloads don't complete inside the app, this lets Reports and Backup upload the file to your GitHub repo instead, then give you a real web link that opens reliably in Chrome. Optional — leave blank to use the app's built-in download only.</p></div></div>
+        <form class="form" onsubmit="saveGithubSettings(event)">
+          <div class="settings-grid">
+            <label>GitHub Username<input name="ghOwner" value="${esc(state.company.ghOwner)}" placeholder="e.g. isurusrinath-ims"></label>
+            <label>Repository Name<input name="ghRepo" value="${esc(state.company.ghRepo)}" placeholder="e.g. ims-pos"></label>
+          </div>
+          <label>Personal Access Token<input name="ghToken" type="password" value="${esc(state.company.ghToken)}" placeholder="ghp_... or github_pat_..."></label>
+          <p class="legend">Create a Fine-grained token at github.com → Settings → Developer settings → Personal access tokens, scoped to only this one repository with "Contents: Read and write" permission. Keep this private — anyone with it can push files to your repo.</p>
+          <button class="primary">Save GitHub Settings</button>
+        </form>
+      </article>
       <article class="card panel"><div class="panel-head"><div><h3>Data Backup</h3><p>Download all data or each module separately.</p></div><button class="primary" onclick="backup('all')">↓ Full Backup</button></div><div class="cards">${scopes.map(s=>`<button class="outline" onclick="backup('${s[0]}')">↓ ${s[1]}</button>`).join('')}</div>
       <hr>
       <div class="grid"><label>Restore Type<select id="restoreScope"><option value="all">Full Backup</option>${scopes.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select></label><label>Choose JSON Backup<input type="file" accept=".json,application/json,text/plain,*/*" onchange="restoreFile(event)"></label></div>
@@ -1177,14 +1190,59 @@
 
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   function download(name,content,type){
-    // This app runs exclusively inside the Appilix WebView in production. Earlier this function
-    // tried window.showSaveFilePicker() first (gated by a user-agent sniff meant to detect wrapped
-    // WebViews), only falling back to the direct blob-anchor method if that failed or wasn't
-    // wrapped-webview-detected. That indirection added a second, less-tested code path and a
-    // user-agent guess that could misroute on some devices. Since fallbackDownload() below is the
-    // one method actually confirmed to place a working file in Downloads on a real device, always
-    // use it directly — no picker, no detection, no ambiguity about which path ran.
+    // If GitHub delivery is configured (Settings → Download Delivery), upload the file there
+    // first: this is a plain HTTPS PUT request via fetch(), which works in any WebView with
+    // internet access — it doesn't touch blob:/data: URLs, the browser's download manager, or
+    // Appilix's File Downloader at all, so it isn't affected by whatever gap exists in that path.
+    // The result is a real GitHub Pages URL the user can open directly. Falls back to the local
+    // in-app download attempt if GitHub isn't configured or the upload fails for any reason.
+    const c=state.company;
+    if(c.ghOwner&&c.ghRepo&&c.ghToken){
+      uploadToGithub(name,content,type).then(url=>{
+        showGithubDeliveryResult(name,url);
+      }).catch(err=>{
+        toast('GitHub upload failed ('+(err.message||'unknown error')+') — trying local download instead',true);
+        fallbackDownload(name,content,type);
+      });
+      return;
+    }
     fallbackDownload(name,content,type);
+  }
+  async function uploadToGithub(name,content,type){
+    const c=state.company;
+    const base64=toBase64(content);
+    const path='downloads/'+name;
+    const apiUrl=`https://api.github.com/repos/${c.ghOwner}/${c.ghRepo}/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}`;
+    // Check whether the file already exists so we can pass its current sha — the Contents API
+    // requires this to update (rather than reject as a conflict) an existing path.
+    let sha;
+    try{
+      const existing=await fetch(apiUrl,{headers:{Authorization:'Bearer '+c.ghToken,Accept:'application/vnd.github+json'}});
+      if(existing.ok){const j=await existing.json();sha=j.sha;}
+    }catch(e){/* first upload of this filename — fine, no sha needed */}
+    const body={message:'IMS POS: add download — '+name,content:base64};
+    if(sha)body.sha=sha;
+    const res=await fetch(apiUrl,{
+      method:'PUT',
+      headers:{Authorization:'Bearer '+c.ghToken,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'');
+      let reason='HTTP '+res.status;
+      try{const j=JSON.parse(errText);if(j.message)reason=j.message;}catch(e){}
+      throw new Error(reason);
+    }
+    // The GitHub Pages URL — assumes Pages is served from the default branch root, matching how
+    // this app is already deployed per the project's own GitHub Pages URL pattern.
+    return `https://${c.ghOwner}.github.io/${c.ghRepo}/${path}`;
+  }
+  function showGithubDeliveryResult(name,url){
+    show(`<h2>"${esc(name)}" is ready</h2>
+      <p>Uploaded successfully. Tap the link below to open and save it — this opens as a real web page link, which works reliably in Chrome or this app.</p>
+      <p style="text-align:center;margin:20px 0"><a href="${esc(url)}" target="_blank" rel="noopener" style="display:inline-block;padding:14px 22px;background:var(--teal);color:#fff;font-weight:800;border-radius:10px;text-decoration:none;word-break:break-all">🔗 Open ${esc(name)}</a></p>
+      <p class="legend">It may take a few seconds after upload for the link to become live. If it 404s immediately, wait a moment and try again.</p>
+      <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
   }
   function downloadViaShareOrBlob(name,content,type){
     // IMPORTANT — this order was tested on a real Appilix-packaged device:
@@ -2087,6 +2145,18 @@
     };
     log('Settings','Updated','Printer setup');
     persist();render();toast('Printer setup saved');
+  }
+  function saveGithubSettings(e){
+    e.preventDefault();
+    const f=new FormData(e.target);
+    state.company={
+      ...state.company,
+      ghOwner:(f.get('ghOwner')||'').trim(),
+      ghRepo:(f.get('ghRepo')||'').trim(),
+      ghToken:(f.get('ghToken')||'').trim()
+    };
+    log('Settings','Updated','GitHub delivery config');
+    persist();render();toast('GitHub delivery settings saved');
   }
   function uploadLogo(e){
     const file=e.target.files[0];
