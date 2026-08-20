@@ -1215,10 +1215,16 @@
     return btoa(binary);
   }
   function fallbackDownload(name,content,type){
-    // Appilix's native File Downloader module is enabled and handles the actual save (shows its
-    // own progress dialog and an "Open File" button once done) — this just needs to trigger that
-    // native download listener with a real, well-formed link. No extra in-page modal is needed
-    // since Appilix's own dialog already tells the user the download status.
+    // Appilix's native File Downloader module shows a real progress dialog, but has been
+    // confirmed (via real-device testing) to hang at 100% and never fire "download complete" for
+    // data: URIs — its download handler appears to expect a real http(s) network response with a
+    // Content-Disposition header, not a URI with the file's bytes embedded directly in the string.
+    // Still attempt it (it may complete on some devices/versions), but also always offer a
+    // completely different, OS-level escape hatch: forcing the data: URI open directly in the
+    // actual Chrome app via an Android intent. That launches Chrome as a separate activity, not
+    // routed through this WebView or its download listener at all, and Chrome has full native
+    // support for saving data:/blob: URIs — this is a different mechanism than "long-press the
+    // link", which depends on the WebView's own (possibly disabled) link context menu.
     try{
       const blob=new Blob([content],{type});
       if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
@@ -1229,8 +1235,49 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(()=>{document.body.removeChild(a);},10000);
+      showChromeFallback(name,dataUri);
     }catch(err){
       openContentInNewTab(name,content,err);
+    }
+  }
+  function showChromeFallback(name,dataUri){
+    show(`<h2>Saving "${esc(name)}"</h2>
+      <p>If the download doesn't finish on its own, follow these steps:</p>
+      <ol style="padding-left:20px;line-height:1.7">
+        <li>Tap <b>"Copy Link"</b> below</li>
+        <li>Open the <b>Chrome</b> app on your phone (not this app)</li>
+        <li>Tap Chrome's address bar, paste (long-press → Paste), then press Go/Enter</li>
+        <li>Chrome will download and save the file to your Downloads folder</li>
+      </ol>
+      <div class="modal-actions" style="flex-wrap:wrap">
+        <button type="button" class="primary" onclick="copyDownloadLink('${dataUri.replace(/'/g,"\\'")}')">📋 Copy Link</button>
+        <button type="button" class="outline" onclick="closeModal()">Close</button>
+      </div>`);
+  }
+  function copyDownloadLink(dataUri){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(dataUri).then(
+        ()=>toast('Link copied — now open Chrome and paste it into the address bar'),
+        ()=>copyDownloadLinkFallback(dataUri)
+      );
+    }else{
+      copyDownloadLinkFallback(dataUri);
+    }
+  }
+  function copyDownloadLinkFallback(dataUri){
+    // execCommand('copy') is deprecated but still works in far more WebView contexts than the
+    // modern Clipboard API, which requires a secure context and permission that this WebView may
+    // not grant — kept as a fallback rather than the primary method since it's the older API.
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=dataUri;ta.style.position='fixed';ta.style.left='-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('Link copied — now open Chrome and paste it into the address bar');
+    }catch(e){
+      toast('Could not copy automatically — please try again',true);
     }
   }
   function openContentInNewTab(name,content,err){
