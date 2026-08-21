@@ -1005,6 +1005,7 @@
     const chequeInvoices=state.invoices.filter(x=>x.paymentType==='Cheque');
     return `<section class="content">
       <div class="hero"><div><h2>Reports</h2><p>Download business reports in Excel format.</p></div><button class="primary" onclick="downloadAllReports()">↓ All Excel</button></div>
+      <p class="legend" style="margin-top:-8px"><a href="javascript:void(0)" onclick="downloadTroubleshoot()" style="color:var(--teal);text-decoration:underline">Trouble downloading?</a></p>
 
       <article class="card panel">
         <div class="panel-head"><div><h3>Profit &amp; Loss Statement</h3><p>Live calculation from invoices, returns and expenses.</p></div><button class="outline" onclick="downloadPnlOnly()">↓ Download P&amp;L</button></div>
@@ -1123,7 +1124,7 @@
           <button class="primary">Save GitHub Settings</button>
         </form>
       </article>
-      <article class="card panel"><div class="panel-head"><div><h3>Data Backup</h3><p>Download all data or each module separately.</p></div><button class="primary" onclick="backup('all')">↓ Full Backup</button></div><div class="cards">${scopes.map(s=>`<button class="outline" onclick="backup('${s[0]}')">↓ ${s[1]}</button>`).join('')}</div>
+      <article class="card panel"><div class="panel-head"><div><h3>Data Backup</h3><p>Download all data or each module separately.</p></div><button class="primary" onclick="backup('all')">↓ Full Backup</button></div><div class="cards">${scopes.map(s=>`<button class="outline" onclick="backup('${s[0]}')">↓ ${s[1]}</button>`).join('')}</div><p class="legend"><a href="javascript:void(0)" onclick="downloadTroubleshoot()" style="color:var(--teal);text-decoration:underline">Trouble downloading?</a></p>
       <hr>
       <div class="grid"><label>Restore Type<select id="restoreScope"><option value="all">Full Backup</option>${scopes.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select></label><label>Choose JSON Backup<input type="file" accept=".json,application/json,text/plain,*/*" onchange="restoreFile(event)"></label></div>
       <p class="legend">If the file picker shows no files, try "All files" or "Downloads" in the picker's menu — some Android file pickers hide .json files by default.</p>
@@ -1244,17 +1245,6 @@
       <p class="legend">It may take a few seconds after upload for the link to become live. If it 404s immediately, wait a moment and try again.</p>
       <div class="modal-actions"><button type="button" class="outline" onclick="closeModal()">Close</button></div>`);
   }
-  function downloadViaShareOrBlob(name,content,type){
-    // IMPORTANT — this order was tested on a real Appilix-packaged device:
-    // navigator.share({files:[file]}) reports success in this WebView (canShare({files:...})
-    // returns true, and share() resolves) but the actual native share sheet that appears is a
-    // bare "Sharing text" box with nothing in it — the file is silently dropped. That looked like
-    // it worked (toast said "Choose where to save") while actually producing nothing usable
-    // (WhatsApp even refused it with "Can't send empty message"). The direct blob-download method
-    // below is the one that was confirmed to actually place a real file in the Downloads folder on
-    // the same device, so it now always runs first; native sharing is not attempted automatically.
-    fallbackDownload(name,content,type);
-  }
   function toBase64(bytesOrString){
     // Accepts either a Uint8Array (xlsx) or a string (JSON/CSV) and returns base64.
     const bytes=typeof bytesOrString==='string'
@@ -1273,34 +1263,36 @@
     return btoa(binary);
   }
   function fallbackDownload(name,content,type){
-    // Appilix's native File Downloader module shows a real progress dialog, but has been
-    // confirmed (via real-device testing) to hang at 100% and never fire "download complete" for
-    // data: URIs — its download handler appears to expect a real http(s) network response with a
-    // Content-Disposition header, not a URI with the file's bytes embedded directly in the string.
-    // Still attempt it (it may complete on some devices/versions), but also always offer a
-    // completely different, OS-level escape hatch: forcing the data: URI open directly in the
-    // actual Chrome app via an Android intent. That launches Chrome as a separate activity, not
-    // routed through this WebView or its download listener at all, and Chrome has full native
-    // support for saving data:/blob: URIs — this is a different mechanism than "long-press the
-    // link", which depends on the WebView's own (possibly disabled) link context menu.
+    // Appilix's native File Downloader (confirmed working on the real device) intercepts this
+    // anchor click and handles the actual save, showing its own "File downloaded" notification.
+    // We have no reliable way to detect success/failure of that from here (the click is
+    // fire-and-forget), so rather than assuming failure and popping a modal on every single
+    // download — which was confusing once downloads started working correctly — show a plain
+    // confirmation toast. If a download genuinely doesn't land, the person can use "Trouble
+    // downloading?" (see downloadTroubleshoot) to get the manual copy-link fallback instead.
     try{
       const blob=new Blob([content],{type});
       if(navigator.msSaveOrOpenBlob){navigator.msSaveOrOpenBlob(blob,name);toast('Saved: '+name);return}
-      const base64=toBase64(content);
-      const dataUri='data:'+type+';base64,'+base64;
+      lastDownloadUri=toDataUri(content,type);
+      lastDownloadName=name;
       const a=document.createElement('a');
-      a.href=dataUri;a.download=name;a.rel='noopener';a.style.display='none';
+      a.href=lastDownloadUri;a.download=name;a.rel='noopener';a.style.display='none';
       document.body.appendChild(a);
       a.click();
       setTimeout(()=>{document.body.removeChild(a);},10000);
-      showChromeFallback(name,dataUri);
+      toast('Downloading '+name+'…');
     }catch(err){
       openContentInNewTab(name,content,err);
     }
   }
-  function showChromeFallback(name,dataUri){
-    show(`<h2>Saving "${esc(name)}"</h2>
-      <p>If the download doesn't finish on its own, follow these steps:</p>
+  function toDataUri(content,type){
+    return 'data:'+type+';base64,'+toBase64(content);
+  }
+  let lastDownloadUri='',lastDownloadName='';
+  function downloadTroubleshoot(){
+    if(!lastDownloadUri)return toast('Download a report or backup first, then use this if it doesn\'t appear.',true);
+    show(`<h2>Trouble downloading "${esc(lastDownloadName)}"?</h2>
+      <p>If it didn't appear in your Downloads or notifications, follow these steps:</p>
       <ol style="padding-left:20px;line-height:1.7">
         <li>Tap <b>"Copy Link"</b> below</li>
         <li>Open the <b>Chrome</b> app on your phone (not this app)</li>
@@ -1308,7 +1300,7 @@
         <li>Chrome will download and save the file to your Downloads folder</li>
       </ol>
       <div class="modal-actions" style="flex-wrap:wrap">
-        <button type="button" class="primary" onclick="copyDownloadLink('${dataUri.replace(/'/g,"\\'")}')">📋 Copy Link</button>
+        <button type="button" class="primary" onclick="copyDownloadLink('${lastDownloadUri.replace(/'/g,"\\'")}')">📋 Copy Link</button>
         <button type="button" class="outline" onclick="closeModal()">Close</button>
       </div>`);
   }
